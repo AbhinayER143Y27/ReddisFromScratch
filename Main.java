@@ -18,23 +18,23 @@ class Main
                         InputStream stream = socket.getInputStream();
                         OutputStream output = socket.getOutputStream();
                         BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
-
+                        ArrayList<String> collectedArgs = new ArrayList<>();
+                        boolean commandTrue = false;
                         while (true) {
                             String line = reader.readLine();
                             if (line == null) break;
-
                             if (line.equals("COMMAND")) {
                                 output.write("+OK\r\n".getBytes());
                                 output.flush();
+                                commandTrue = true;
                             }
                             if (line.equals("exit")) {
                                 break;
                             }
 
-                            if(line.startsWith("*"))
+                            if(line.startsWith("*") && commandTrue)
                             {
                                 int arrayNumber = Integer.parseInt(line.substring(1));
-                                ArrayList<String> collectedArgs = new ArrayList<>();
                                 for(int i = 0; i < 2 * arrayNumber; i++)
                                 {
                                     String insideLine = reader.readLine();
@@ -57,6 +57,12 @@ class Main
                                 }
                             }
                             if (line.equals("PING")) {
+                                output.write("+PONG\r\n".getBytes());
+                                output.flush();
+                            }
+                            if(collectedArgs.contains("PING"))
+                            {
+                                System.out.println("The users request: PING");
                                 output.write("+PONG\r\n".getBytes());
                                 output.flush();
                             }
