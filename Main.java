@@ -19,20 +19,15 @@ class Main
                         OutputStream output = socket.getOutputStream();
                         BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
                         ArrayList<String> collectedArgs = new ArrayList<>();
-                        boolean commandTrue = false;
                         while (true) {
                             String line = reader.readLine();
                             if (line == null) break;
-                            if (line.equals("COMMAND")) {
-                                output.write("+OK\r\n".getBytes());
-                                output.flush();
-                                commandTrue = true;
-                            }
+
                             if (line.equals("exit")) {
                                 break;
                             }
 
-                            if(line.startsWith("*") && commandTrue)
+                            if(line.startsWith("*"))
                             {
                                 int arrayNumber = Integer.parseInt(line.substring(1));
                                 for(int i = 0; i < 2 * arrayNumber; i++)
@@ -46,23 +41,39 @@ class Main
                                         collectedArgs.add(insideLine);
                                     }
                                 }
+                                if(collectedArgs.isEmpty()) return;
 
-                                if(collectedArgs.get(0).equals("ECHO"))
+                                String command = collectedArgs.get(0).toUpperCase(); // case insensitice
+
+                                switch (command)
                                 {
-                                    for(int i = 1; i < collectedArgs.size(); i++)
-                                    {
-                                        output.write(("$" + collectedArgs.get(i).length() + "\r\n").getBytes());
-                                        output.write((collectedArgs.get(i) + "\r\n").getBytes());
-                                    }
+                                    case "ECHO":
+                                        if(collectedArgs.size() != 2)
+                                        {
+                                            output.write(("There must be 2 inputs for the command ECHO").getBytes());
+                                        }
+                                        else
+                                        {
+                                            output.write(("$" + collectedArgs.get(1).length() + "\r\n").getBytes());
+                                            output.write((collectedArgs.get(1) + "\r\n").getBytes());
+                                            System.out.println("The users request" + collectedArgs.get(1));
+                                        }
+                                        break;
+                                    default:
+                                        String error = "Unkown command is in here...." + command + "\r\n";
+                                        output.write((error).getBytes());
+                                        break;
                                 }
+                                collectedArgs.clear();
                             }
                             if (line.equals("PING")) {
                                 output.write("+PONG\r\n".getBytes());
                                 output.flush();
                             }
-                            if(collectedArgs.contains("PING"))
+                            if(collectedArgs.equals("PING"))
                             {
-                                System.out.println("The users request: PING");
+                                System.out.println("The users request: "+ collectedArgs.get(0));
+                                collectedArgs.clear();
                                 output.write("+PONG\r\n".getBytes());
                                 output.flush();
                             }
@@ -77,7 +88,7 @@ class Main
                 thread.start();
             }
         } catch(IOException e){
-                System.out.println("Error : " + e.getMessage());
+            System.out.println("Error : " + e.getMessage());
         }
     }
 }
