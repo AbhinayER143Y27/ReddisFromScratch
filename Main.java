@@ -41,41 +41,36 @@ class Main
                                         collectedArgs.add(insideLine);
                                     }
                                 }
-                                if(collectedArgs.isEmpty()) return;
+                                if(collectedArgs.isEmpty()) continue;
 
-                                String command = collectedArgs.get(0).toUpperCase(); // case insensitice
+                                String command = collectedArgs.get(0).toUpperCase();
 
                                 switch (command)
                                 {
                                     case "ECHO":
                                         if(collectedArgs.size() != 2)
                                         {
-                                            output.write(("There must be 2 inputs for the command ECHO").getBytes());
+                                            output.write(("-There must be 2 inputs for the command ECHO \r\n").getBytes());
+                                            output.flush();
                                         }
                                         else
                                         {
                                             output.write(("$" + collectedArgs.get(1).length() + "\r\n").getBytes());
                                             output.write((collectedArgs.get(1) + "\r\n").getBytes());
-                                            System.out.println("The users request" + collectedArgs.get(1));
+                                            System.out.println("The users request " + collectedArgs.get(1));
+                                            output.flush();
                                         }
                                         break;
+                                    case "PING":
+                                        output.write(("+PONG\r\n").getBytes());
+                                        output.flush();
                                     default:
-                                        String error = "Unkown command is in here...." + command + "\r\n";
+                                        String error = "- Error unknown command " + command + "\r\n";
                                         output.write((error).getBytes());
+                                        output.flush();
                                         break;
                                 }
                                 collectedArgs.clear();
-                            }
-                            if (line.equals("PING")) {
-                                output.write("+PONG\r\n".getBytes());
-                                output.flush();
-                            }
-                            if(collectedArgs.equals("PING"))
-                            {
-                                System.out.println("The users request: "+ collectedArgs.get(0));
-                                collectedArgs.clear();
-                                output.write("+PONG\r\n".getBytes());
-                                output.flush();
                             }
                             System.out.println("The users request: " + line);
                         }
