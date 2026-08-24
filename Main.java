@@ -1,12 +1,13 @@
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.sql.Time;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 class Main
 {
-    private static ConcurrentHashMap<String, String> dataSets = new ConcurrentHashMap<>();
+    private static ConcurrentHashMap<String, StoredValue> dataSets = new ConcurrentHashMap<>();
     public static void main(String[] args) {
         int port = 6379;
         try (ServerSocket serversocket = new ServerSocket(port)) {
@@ -71,7 +72,8 @@ class Main
                                         }
                                         else
                                         {
-                                            dataSets.put(collectedArgs.get(1), collectedArgs.get(2));
+                                            long Time = 0;
+                                            dataSets.put(collectedArgs.get(1), new StoredValue(collectedArgs.get(2), Time));
                                             output.write(("+OK\r\n".getBytes()));
                                         }
                                         break;
@@ -122,4 +124,15 @@ class Main
             System.out.println("Error : " + e.getMessage());
         }
     }
+}
+class StoredValue
+{
+   final String Data;
+   final long Time;
+
+   public StoredValue(String Data, long Time)
+   {
+       this.Data = Data;
+       this.Time = (Time > 0) ? (System.currentTimeMillis() + Time) : -1;
+   }
 }
