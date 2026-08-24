@@ -1,17 +1,18 @@
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Scanner;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 class Main
 {
+    private static ConcurrentHashMap<String, String> dataSets = new ConcurrentHashMap<>();
     public static void main(String[] args) {
         int port = 6379;
         try (ServerSocket serversocket = new ServerSocket(port)) {
             while (true) {
                 Socket socket = serversocket.accept();
+
                 Thread thread = new Thread(() -> {//for the 10,000 threads the CPU will spend more time swapping between threads than actually doing the work - context switching overhead.
                     try {
                         System.out.println("The connection has been build");
@@ -50,7 +51,7 @@ class Main
                                     case "ECHO":
                                         if(collectedArgs.size() != 2)
                                         {
-                                            output.write(("-There must be 2 inputs for the command ECHO \r\n").getBytes());
+                                            output.write(("-There must be 2 inputs for the command ECHO.\r\n").getBytes());
                                             output.flush();
                                         }
                                         else
@@ -61,9 +62,44 @@ class Main
                                             output.flush();
                                         }
                                         break;
+
+                                    case "SET":
+                                        if(collectedArgs.size() != 3)
+                                        {
+                                            output.write(("-There has to be 3 inputs for the command SET").getBytes());
+                                            output.flush();
+                                        }
+                                        else
+                                        {
+                                            dataSets.put(collectedArgs.get(1), collectedArgs.get(2));
+                                            output.write(("+OK\r\n".getBytes()));
+                                        }
+                                        break;
+
+                                    case "GET":
+                                        if(collectedArgs.size() != 2)
+                                        {
+                                            output.write(("-There has to be 2 inputs for the command GET.\r\n".getBytes()));
+                                        }
+                                        else
+                                        {
+                                            String print = dataSets.get(collectedArgs.get(1));
+                                            if(print == null)
+                                            {
+                                                output.write(("$-1\r\n").getBytes());
+                                            }
+                                            else {
+                                                output.write(("+" + print + "\r\n").getBytes());
+                                                output.flush();
+                                            }
+                                        }
+                                        break;
+
                                     case "PING":
                                         output.write(("+PONG\r\n").getBytes());
                                         output.flush();
+                                        break;
+
                                     default:
                                         String error = "- Error unknown command " + command + "\r\n";
                                         output.write((error).getBytes());
