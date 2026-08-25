@@ -1,7 +1,6 @@
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.sql.Time;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -67,7 +66,7 @@ class Main
                                     case "SET":
                                         if(collectedArgs.size() != 3)
                                         {
-                                            output.write(("-There has to be 3 inputs for the command SET").getBytes());
+                                            output.write(("-There has to be 3 inputs for the command SET\r\n").getBytes());
                                             output.flush();
                                         }
                                         else
@@ -75,6 +74,7 @@ class Main
                                             long Time = 0;
                                             dataSets.put(collectedArgs.get(1), new StoredValue(collectedArgs.get(2), Time));
                                             output.write(("+OK\r\n".getBytes()));
+                                            output.flush();
                                         }
                                         break;
 
@@ -82,16 +82,20 @@ class Main
                                         if(collectedArgs.size() != 2)
                                         {
                                             output.write(("-There has to be 2 inputs for the command GET.\r\n".getBytes()));
+                                            output.flush();
                                         }
                                         else
                                         {
-                                            String print = dataSets.get(collectedArgs.get(1));
+                                            StoredValue print = dataSets.get(collectedArgs.get(1));
                                             if(print == null)
                                             {
                                                 output.write(("$-1\r\n").getBytes());
+                                                output.flush();
                                             }
                                             else {
-                                                output.write(("+" + print + "\r\n").getBytes());
+                                                String value = print.Data;
+                                                output.write(("$" + value.length() + "\r\n").getBytes());
+                                                output.write((value + "\r\n").getBytes());
                                                 output.flush();
                                             }
                                         }
