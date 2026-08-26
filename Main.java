@@ -64,16 +64,22 @@ class Main
                                         break;
 
                                     case "SET":
-                                        if(collectedArgs.size() != 3)
+                                        if(collectedArgs.size() == 5 && collectedArgs.get(3).equalsIgnoreCase("PX"))
                                         {
-                                            output.write(("-There has to be 3 inputs for the command SET\r\n").getBytes());
+                                            int timer = Integer.parseInt(collectedArgs.get(4));
+                                            dataSets.put(collectedArgs.get(1), new StoredValue(collectedArgs.get(2), timer));
+                                            output.write(("+Ok\r\n").getBytes());
+                                            output.flush();
+                                        }
+                                        else if(collectedArgs.size() == 3)
+                                        {
+                                            dataSets.put(collectedArgs.get(1), new StoredValue(collectedArgs.get(2),0));
+                                            output.write(("+OK\r\n".getBytes()));
                                             output.flush();
                                         }
                                         else
                                         {
-                                            long Time = 0;
-                                            dataSets.put(collectedArgs.get(1), new StoredValue(collectedArgs.get(2), Time));
-                                            output.write(("+OK\r\n".getBytes()));
+                                            output.write(("-There has to be 3 inputs for the command SET\r\n").getBytes());
                                             output.flush();
                                         }
                                         break;
@@ -94,9 +100,28 @@ class Main
                                             }
                                             else {
                                                 String value = print.Data;
-                                                output.write(("$" + value.length() + "\r\n").getBytes());
-                                                output.write((value + "\r\n").getBytes());
-                                                output.flush();
+                                                long time = print.Time;
+                                                if(time != -1)
+                                                {
+                                                    if(time < System.currentTimeMillis()) // time = System.currentTime Millis + added time.
+                                                    {
+                                                        dataSets.remove(collectedArgs.get(1));
+                                                        output.write(("-1\r\n").getBytes());
+                                                        output.flush();
+                                                    }
+                                                    else
+                                                    {
+                                                        output.write(("$" + value.length() + "\r\n").getBytes());
+                                                        output.write((value + "\r\n").getBytes());
+                                                        output.flush();
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    output.write(("$" + value.length() + "\r\n").getBytes());
+                                                    output.write((value + "\r\n").getBytes());
+                                                    output.flush();
+                                                }
                                             }
                                         }
                                         break;
