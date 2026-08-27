@@ -9,7 +9,43 @@ class Main
     private static ConcurrentHashMap<String, StoredValue> dataSets = new ConcurrentHashMap<>();
     public static void main(String[] args) {
         int port = 6379;
+
+            Thread deletionThread = new Thread(() ->
+            {
+                while(true) {
+                    int counter = 0;
+                    for (Map.Entry<String, StoredValue> entry : dataSets.entrySet()) {
+                        String key = entry.getKey();
+                        StoredValue value = entry.getValue();
+                        counter++;
+
+                        if (counter == 20) {
+                            counter = 0;
+                            break;
+                        }
+
+                        if (System.currentTimeMillis() > value.Time && value.Time > 0) {
+                            // System.out.println("The key is removed " + key);   -----> To check if the background thread is working or not without even calling the get function because
+                            // that is what it is supposed to do correct.
+                            dataSets.remove(key);
+                        } else {
+                            continue;
+                        }
+                    }
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            });
+
+
         try (ServerSocket serversocket = new ServerSocket(port)) {
+
+            deletionThread.start();
+
             while (true) {
                 Socket socket = serversocket.accept();
 
