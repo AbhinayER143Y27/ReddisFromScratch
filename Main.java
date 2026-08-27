@@ -14,24 +14,33 @@ class Main
 
             Thread deletionThread = new Thread(() ->
             {
-                while(true) {
+                outer: while(true) {
+                    ArrayList<String> keys = new ArrayList<>(dataSets.keySet()); //each cycle will get a new snapshot of the keys in the list.
+                    Collections.shuffle(keys);
                     int counter = 0;
-                    for (Map.Entry<String, Long> entry : dataSets.entrySet()) {
-                        String key = entry.getKey();
-                        Long value = entry.getValue();
+                    int aggressiveCounter = 0;
+                    for(String x : keys)
+                    {
+                        Long time = dataSets.get(x);
+                        if(time == null)
+                        {
+                            counter++;
+                            continue;
+                        }
+                        if(time < System.currentTimeMillis())
+                        {
+                            dataSets.remove(x);
+                            MainSets.remove(x);
+                            aggressiveCounter++;
+                        }
                         counter++;
-
-                        if (counter == 20) {
-                            counter = 0;
+                        if(counter >= Math.min(20, keys.size()))
+                        {
                             break;
                         }
-
-                        if (System.currentTimeMillis() > value && value > 0) {
-                            // System.out.println("The key is removed " + key);   -----> To check if the background thread is working or not without even calling the get function because
-                            // that is what it is supposed to do correct.
-                            dataSets.remove(key);
-                        } else {
-                            continue;
+                        if(aggressiveCounter > 5)
+                        {
+                            //counter = 0;
                         }
                     }
                     try {
