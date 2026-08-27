@@ -104,11 +104,17 @@ class Main
                                     case "SET":
                                         if(collectedArgs.size() == 5 && collectedArgs.get(3).equalsIgnoreCase("PX"))
                                         {
+                                            Long timer = Long.parseLong(collectedArgs.get(4));
+                                            dataSets.put(collectedArgs.get(1), timer);
+                                            MainSets.put(collectedArgs.get(1), collectedArgs.get(2));
                                             output.write(("+Ok\r\n").getBytes());
                                             output.flush();
                                         }
                                         else if(collectedArgs.size() == 3)
                                         {
+                                            String key = collectedArgs.get(1);
+                                            dataSets.remove(key);
+                                            MainSets.put(key, collectedArgs.get(2));
                                             output.write(("+OK\r\n".getBytes()));
                                             output.flush();
                                         }
@@ -131,10 +137,27 @@ class Main
                                             if(MainSets.containsKey(key))
                                             {
                                                 Long time = dataSets.get(key);
-                                                String value = MainSets.get(key);
-                                                output.write(("$" + value.length() + "\r\n").getBytes());
-                                                output.write((value + "\r\n").getBytes());
-                                                output.flush();
+                                                if(MainSets.containsKey(key) && !dataSets.containsKey(key))
+                                                {
+                                                    String value = MainSets.get(key);
+                                                    output.write(("$" + value.length() + "\r\n").getBytes());
+                                                    output.write((value + "\r\n").getBytes());
+                                                    output.flush();
+                                                }
+                                                else if(dataSets.containsKey(key) && time < System.currentTimeMillis())
+                                                {
+                                                    dataSets.remove(key);
+                                                    MainSets.remove(key);
+                                                    output.write(("$-1\r\n").getBytes());
+                                                    output.flush();
+                                                }
+                                                else if(dataSets.containsKey(key) && time > System.currentTimeMillis())
+                                                {
+                                                    String value = MainSets.get(key);
+                                                    output.write(("$" + value.length() + "\r\n").getBytes());
+                                                    output.write((value + "\r\n").getBytes());
+                                                    output.flush();
+                                                }
                                             }
                                             else
                                             {
