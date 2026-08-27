@@ -6,7 +6,9 @@ import java.util.concurrent.ConcurrentHashMap;
 
 class Main
 {
-    private static ConcurrentHashMap<String, StoredValue> dataSets = new ConcurrentHashMap<>();
+    private static ConcurrentHashMap<String, String> MainSets = new ConcurrentHashMap<>(); // for the data without the expiration.
+    private static ConcurrentHashMap<String, Long> dataSets = new ConcurrentHashMap<>(); // for the data with the expiration.
+
     public static void main(String[] args) {
         int port = 6379;
 
@@ -14,9 +16,9 @@ class Main
             {
                 while(true) {
                     int counter = 0;
-                    for (Map.Entry<String, StoredValue> entry : dataSets.entrySet()) {
+                    for (Map.Entry<String, Long> entry : dataSets.entrySet()) {
                         String key = entry.getKey();
-                        StoredValue value = entry.getValue();
+                        Long value = entry.getValue();
                         counter++;
 
                         if (counter == 20) {
@@ -24,7 +26,7 @@ class Main
                             break;
                         }
 
-                        if (System.currentTimeMillis() > value.Time && value.Time > 0) {
+                        if (System.currentTimeMillis() > value && value > 0) {
                             // System.out.println("The key is removed " + key);   -----> To check if the background thread is working or not without even calling the get function because
                             // that is what it is supposed to do correct.
                             dataSets.remove(key);
@@ -102,14 +104,11 @@ class Main
                                     case "SET":
                                         if(collectedArgs.size() == 5 && collectedArgs.get(3).equalsIgnoreCase("PX"))
                                         {
-                                            int timer = Integer.parseInt(collectedArgs.get(4));
-                                            dataSets.put(collectedArgs.get(1), new StoredValue(collectedArgs.get(2), timer));
                                             output.write(("+Ok\r\n").getBytes());
                                             output.flush();
                                         }
                                         else if(collectedArgs.size() == 3)
                                         {
-                                            dataSets.put(collectedArgs.get(1), new StoredValue(collectedArgs.get(2),0));
                                             output.write(("+OK\r\n".getBytes()));
                                             output.flush();
                                         }
@@ -128,37 +127,21 @@ class Main
                                         }
                                         else
                                         {
-                                            StoredValue print = dataSets.get(collectedArgs.get(1));
-                                            if(print == null)
+                                            String key = collectedArgs.get(1);
+                                            if(MainSets.containsKey(key))
+                                            {
+                                                Long time = dataSets.get(key);
+                                                String value = MainSets.get(key);
+                                                output.write(("$" + value.length() + "\r\n").getBytes());
+                                                output.write((value + "\r\n").getBytes());
+                                                output.flush();
+                                            }
+                                            else
                                             {
                                                 output.write(("$-1\r\n").getBytes());
                                                 output.flush();
                                             }
-                                            else {
-                                                String value = print.Data;
-                                                long time = print.Time;
-                                                if(time != -1)
-                                                {
-                                                    if(time < System.currentTimeMillis()) // time = System.currentTime Millis + added time.
-                                                    {
-                                                        dataSets.remove(collectedArgs.get(1));
-                                                        output.write(("-1\r\n").getBytes());
-                                                        output.flush();
-                                                    }
-                                                    else
-                                                    {
-                                                        output.write(("$" + value.length() + "\r\n").getBytes());
-                                                        output.write((value + "\r\n").getBytes());
-                                                        output.flush();
-                                                    }
-                                                }
-                                                else
-                                                {
-                                                    output.write(("$" + value.length() + "\r\n").getBytes());
-                                                    output.write((value + "\r\n").getBytes());
-                                                    output.flush();
-                                                }
-                                            }
+
                                         }
                                         break;
 
