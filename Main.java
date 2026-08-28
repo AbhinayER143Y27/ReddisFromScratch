@@ -6,8 +6,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 class Main
 {
-    private static ConcurrentHashMap<String, String> MainSets = new ConcurrentHashMap<>(); // for the data without the expiration.
-    private static ConcurrentHashMap<String, Long> dataSets = new ConcurrentHashMap<>(); // for the data with the expiration.
+    private static ConcurrentHashMap<String, String> MainSets = new ConcurrentHashMap<>();
+    private static ConcurrentHashMap<String, Long> dataSets = new ConcurrentHashMap<>();
 
     public static void main(String[] args) {
         int port = 6379;
@@ -21,6 +21,7 @@ class Main
                     int aggressiveCounter = 0;
                     for(String x : keys)
                     {
+                        System.out.println("In the for loop");
                         Long time = dataSets.get(x);
                         if(time == null)
                         {
@@ -33,18 +34,19 @@ class Main
                             MainSets.remove(x);
                             aggressiveCounter++;
                         }
+                        if(aggressiveCounter > 5)
+                        {
+                            continue outer;
+                        }
                         counter++;
                         if(counter >= Math.min(20, keys.size()))
                         {
                             break;
                         }
-                        if(aggressiveCounter > 5)
-                        {
-                            //counter = 0;
-                        }
                     }
                     try {
-                        Thread.sleep(100);
+                        System.out.println("Sleeping now...");
+                        Thread.sleep(3000);
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                         break;
@@ -114,7 +116,7 @@ class Main
                                         if(collectedArgs.size() == 5 && collectedArgs.get(3).equalsIgnoreCase("PX"))
                                         {
                                             Long timer = Long.parseLong(collectedArgs.get(4));
-                                            dataSets.put(collectedArgs.get(1), timer);
+                                            dataSets.put(collectedArgs.get(1), timer + System.currentTimeMillis());
                                             MainSets.put(collectedArgs.get(1), collectedArgs.get(2));
                                             output.write(("+Ok\r\n").getBytes());
                                             output.flush();
@@ -155,6 +157,7 @@ class Main
                                                 }
                                                 else if(dataSets.containsKey(key) && time < System.currentTimeMillis())
                                                 {
+                                                    System.out.println("Key removed by the get call");
                                                     dataSets.remove(key);
                                                     MainSets.remove(key);
                                                     output.write(("$-1\r\n").getBytes());
@@ -204,15 +207,4 @@ class Main
             System.out.println("Error : " + e.getMessage());
         }
     }
-}
-class StoredValue
-{
-   final String Data;
-   final long Time;
-
-   public StoredValue(String Data, long Time)
-   {
-       this.Data = Data;
-       this.Time = (Time > 0) ? (System.currentTimeMillis() + Time) : -1;
-   }
 }
