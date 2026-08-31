@@ -6,8 +6,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 class Main
 {
-    private static ConcurrentHashMap<String, String> MainSets = new ConcurrentHashMap<>();
-    private static ConcurrentHashMap<String, Long> dataSets = new ConcurrentHashMap<>();
+    private static ConcurrentHashMap<String, String> MainSets = new ConcurrentHashMap<>(); // for the data without the expiration.
+    private static ConcurrentHashMap<String, Long> dataSets = new ConcurrentHashMap<>(); // for the data with the expiration.
 
     public static void main(String[] args) {
         int port = 6379;
@@ -46,7 +46,7 @@ class Main
                     }
                     try {
                         System.out.println("Sleeping now...");
-                        Thread.sleep(3000);
+                        Thread.sleep(3000); //look at this the thread in here is the deletion thread which has to go to sleep
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                         break;
@@ -206,5 +206,25 @@ class Main
         } catch(IOException e){
             System.out.println("Error : " + e.getMessage());
         }
+    }
+}
+
+class RedisObject
+{
+    enum Type
+    {
+        STRING,
+        LIST,
+        HASH,
+        SET
+    }
+
+    final Type type;
+    final Object payLoad;
+
+    public RedisObject(Type type ,Object payLoad)
+    {
+        this.type = type;
+        this.payLoad = payLoad;
     }
 }
