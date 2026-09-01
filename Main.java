@@ -70,6 +70,7 @@ class Main
                         OutputStream output = socket.getOutputStream();
                         BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
                         ArrayList<String> collectedArgs = new ArrayList<>();
+                        Deque<String> listForLR = new LinkedList<>();
                         while (true) {
                             String line = reader.readLine();
                             if (line == null) break;
@@ -205,6 +206,35 @@ class Main
                                                 output.flush();
                                             }
                                         }
+                                        break;
+
+                                    case "LPUSH":
+                                        for(int i = 1; i < collectedArgs.size(); i++) {
+                                            listForLR.addFirst(collectedArgs.get(i));
+                                        }
+                                        output.write(("+OK\r\n").getBytes());
+                                        output.flush();
+                                        break;
+
+                                    case "RPUSH":
+                                        for(int i = 1; i < collectedArgs.size(); i++) {
+                                            listForLR.addLast(collectedArgs.get(i));
+                                        }
+                                        output.write(("+OK\r\n").getBytes());
+                                        output.flush();
+                                        break;
+
+                                    case "LPOP": // lpop means only one is ask for te pop not all so
+                                        String value = listForLR.pollFirst();
+                                        output.write(("$" + value.length() + "\r\n").getBytes());
+                                        output.write((value + "\r\n").getBytes());
+                                        break;
+
+                                    case "RPOP":
+                                        String valueR = listForLR.pollLast();
+                                        output.write(("$" + valueR.length() + "\r\n").getBytes());
+                                        output.write((valueR + "\r\n").getBytes());
+                                        output.flush();
                                         break;
 
                                     case "PING":
