@@ -114,7 +114,15 @@ class Main
                                         break;
 
                                     case "SET":
-                                        int pxIndex = collectedArgs.indexOf("PX");
+                                        int pxIndex = -1;
+                                        for(int i = 0; i < collectedArgs.size(); i++)
+                                        {
+                                            if(collectedArgs.get(i).equalsIgnoreCase("PX"))
+                                            {
+                                                pxIndex = i;
+                                                break;
+                                            }
+                                        }
                                         Long Time;
                                         if(pxIndex != -1 && collectedArgs.size() > pxIndex + 1) {
                                             // in this if && collectedArgs.size() > 3 this was added which was there now it is removed because what if set color px is written like this just a really great edge case in here for redis.
@@ -149,12 +157,22 @@ class Main
                                             String key = collectedArgs.get(1);
                                             if(MainSets.containsKey(key))
                                             {
+
                                                 Long time = dataSets.get(key);
                                                 if(MainSets.containsKey(key) && !dataSets.containsKey(key))
                                                 {
                                                     RedisObject getValue = MainSets.get(key);
                                                     Object valueobject = getValue.payLoad;
-                                                    String value = String.valueOf(valueobject);
+                                                    String value = "";
+                                                    if(getValue.type == RedisObject.Type.STRING) {
+                                                        value = String.valueOf(valueobject);
+                                                    }
+                                                    else if(getValue.type == RedisObject.Type.LIST)
+                                                    {
+                                                        // we will do this later because i cannot see in the future right so we will work around that and then i will see what to do in here
+                                                        // the probability will be higher at that time when the list will be implemented or something like that ig.
+                                                        //value = List.of();
+                                                    }
                                                     output.write(("$" + value.length() + "\r\n").getBytes());
                                                     output.write((value + "\r\n").getBytes());
                                                     output.flush();
@@ -171,7 +189,11 @@ class Main
                                                 {
                                                     RedisObject getValue = MainSets.get(key);
                                                     Object valueObject = getValue.payLoad;
-                                                    String value = String.valueOf(valueObject);
+                                                    String value = "";
+                                                    if(getValue.type == RedisObject.Type.STRING)
+                                                    {
+                                                        value = String.valueOf(valueObject);
+                                                    }
                                                     output.write(("$" + value.length() + "\r\n").getBytes());
                                                     output.write((value + "\r\n").getBytes());
                                                     output.flush();
@@ -182,7 +204,6 @@ class Main
                                                 output.write(("$-1\r\n").getBytes());
                                                 output.flush();
                                             }
-
                                         }
                                         break;
 
