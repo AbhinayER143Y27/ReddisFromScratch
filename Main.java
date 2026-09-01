@@ -114,25 +114,26 @@ class Main
                                         break;
 
                                     case "SET":
-                                        if(collectedArgs.size() == 5 && collectedArgs.get(3).equalsIgnoreCase("PX"))
-                                        {
-                                            Long timer = Long.parseLong(collectedArgs.get(4));
-                                            dataSets.put(collectedArgs.get(1), timer + System.currentTimeMillis());
+                                        int pxIndex = collectedArgs.indexOf("PX");
+                                        Long Time;
+                                        if(pxIndex != -1 && collectedArgs.size() > pxIndex + 1) {
+                                            // in this if && collectedArgs.size() > 3 this was added which was there now it is removed because what if set color px is written like this just a really great edge case in here for redis.
+                                            Time = Long.parseLong(collectedArgs.get(pxIndex + 1));
+                                            dataSets.put(collectedArgs.get(1), Time + System.currentTimeMillis());
                                             MainSets.put(collectedArgs.get(1), new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
                                             output.write(("+Ok\r\n").getBytes());
                                             output.flush();
                                         }
-                                        else if(collectedArgs.size() == 3)
-                                        {
+                                        else if (pxIndex == -1 && collectedArgs.size() >= 3){
                                             String key = collectedArgs.get(1);
                                             dataSets.remove(key);
-                                            MainSets.put(key, new RedisObject(RedisObject.Type.STRING ,collectedArgs.get(2)));
+                                            MainSets.put(key, new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
                                             output.write(("+OK\r\n".getBytes()));
                                             output.flush();
                                         }
                                         else
                                         {
-                                            output.write(("-There has to be 3 inputs for the command SET\r\n").getBytes());
+                                            output.write(("-There is problem in the manner of your writing.\r\n").getBytes());
                                             output.flush();
                                         }
                                         break;
