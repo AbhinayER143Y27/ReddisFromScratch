@@ -216,13 +216,23 @@ class Main
                                         {
                                             listL = new LinkedList<>();
                                             MainSets.put(keyL, new RedisObject(RedisObject.Type.LIST ,listL));
-                                        }else{
+                                        }
+                                        else if(existingL != null && existingL.type == RedisObject.Type.LIST) // so that means the current key is not a string but a list so
+                                        {
                                             listL = (Deque<String>) existingL.payLoad;
                                         }
+                                        else
+                                        {
+                                            output.write(("$-1\r\n").getBytes());
+                                            output.flush();
+                                            break;
+                                        }
+
                                         for(int i = 2; i < collectedArgs.size(); i++)
                                         {
                                             listL.addFirst(collectedArgs.get(i));
                                         }
+
                                         output.write(("+OK\r\n".getBytes()));
                                         output.flush();
                                         break;
@@ -236,9 +246,15 @@ class Main
                                             listR = new LinkedList<>();
                                             MainSets.put(keyR, new RedisObject(RedisObject.Type.LIST, listR));
                                         }
-                                        else
+                                        else if(existingR != null && existingR.type == RedisObject.Type.LIST)
                                         {
                                             listR = (Deque<String>) existingR.payLoad;
+                                        }
+                                        else
+                                        {
+                                            output.write(("$-1\r\n").getBytes());
+                                            output.flush();
+                                            break;
                                         }
                                         for(int i = 2; i < collectedArgs.size(); i++)
                                         {
@@ -247,7 +263,6 @@ class Main
                                         output.write(("+OK\r\n").getBytes());
                                         output.flush();
                                         break;
-
                                     case "LPOP": // lpop means only one is ask for te pop not all so
                                         String value = listForLR.pollFirst();
                                         output.write(("$" + value.length() + "\r\n").getBytes());
