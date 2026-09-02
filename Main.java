@@ -12,48 +12,48 @@ class Main
     public static void main(String[] args) {
         int port = 6379;
 
-            Thread deletionThread = new Thread(() ->
-            {
-                outer: while(true) {
-                    ArrayList<String> keys = new ArrayList<>(dataSets.keySet()); //each cycle will get a new snapshot of the keys in the list.
-                    Collections.shuffle(keys);
-                    int counter = 0;
-                    int aggressiveCounter = 0;
-                    for(String x : keys)
+        Thread deletionThread = new Thread(() ->
+        {
+            outer: while(true) {
+                ArrayList<String> keys = new ArrayList<>(dataSets.keySet()); //each cycle will get a new snapshot of the keys in the list.
+                Collections.shuffle(keys);
+                int counter = 0;
+                int aggressiveCounter = 0;
+                for(String x : keys)
+                {
+                    System.out.println("In the for loop");
+                    Long time = dataSets.get(x);
+                    if(time == null)
                     {
-                        System.out.println("In the for loop");
-                        Long time = dataSets.get(x);
-                        if(time == null)
-                        {
-                            counter++;
-                            continue;
-                        }
-                        if(time < System.currentTimeMillis())
-                        {
-                            System.out.println(dataSets.get(x) + " is removed because of time limitations......");
-                            dataSets.remove(x);
-                            MainSets.remove(x);
-                            aggressiveCounter++;
-                        }
-                        if(aggressiveCounter > 5)
-                        {
-                            continue outer;
-                        }
                         counter++;
-                        if(counter >= Math.min(20, keys.size()))
-                        {
-                            break;
-                        }
+                        continue;
                     }
-                    try {
-                        System.out.println("Sleeping now...");
-                        Thread.sleep(3000); //look at this the thread in here is the deletion thread which has to go to sleep
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
+                    if(time < System.currentTimeMillis())
+                    {
+                        System.out.println(dataSets.get(x) + " is removed because of time limitations......");
+                        dataSets.remove(x);
+                        MainSets.remove(x);
+                        aggressiveCounter++;
+                    }
+                    if(aggressiveCounter > 5)
+                    {
+                        continue outer;
+                    }
+                    counter++;
+                    if(counter >= Math.min(20, keys.size()))
+                    {
                         break;
                     }
                 }
-            });
+                try {
+                    System.out.println("Sleeping now...");
+                    Thread.sleep(3000); //look at this the thread in here is the deletion thread which has to go to sleep
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        });
 
 
         try (ServerSocket serversocket = new ServerSocket(port)) {
@@ -209,16 +209,40 @@ class Main
                                         break;
 
                                     case "LPUSH":
-                                        for(int i = 1; i < collectedArgs.size(); i++) {
-                                            listForLR.addFirst(collectedArgs.get(i));
+                                        String keyL = collectedArgs.get(1);
+                                        RedisObject existingL = MainSets.get(keyL);
+                                        Deque<String> listL;
+                                        if(existingL == null)
+                                        {
+                                            listL = new LinkedList<>();
+                                            MainSets.put(keyL, new RedisObject(RedisObject.Type.LIST ,listL));
+                                        }else{
+                                            listL = (Deque<String>) existingL.payLoad;
                                         }
-                                        output.write(("+OK\r\n").getBytes());
+                                        for(int i = 2; i < collectedArgs.size(); i++)
+                                        {
+                                            listL.addFirst(collectedArgs.get(i));
+                                        }
+                                        output.write(("+OK\r\n".getBytes()));
                                         output.flush();
                                         break;
 
                                     case "RPUSH":
-                                        for(int i = 1; i < collectedArgs.size(); i++) {
-                                            listForLR.addLast(collectedArgs.get(i));
+                                        String keyR = collectedArgs.get(1);
+                                        RedisObject existingR = MainSets.get(keyR);
+                                        Deque<String> listR;
+                                        if(existingR == null)
+                                        {
+                                            listR = new LinkedList<>();
+                                            MainSets.put(keyR, new RedisObject(RedisObject.Type.LIST, listR));
+                                        }
+                                        else
+                                        {
+                                            listR = (Deque<String>) existingR.payLoad;
+                                        }
+                                        for(int i = 2; i < collectedArgs.size(); i++)
+                                        {
+                                            listR.addLast(collectedArgs.get(i));
                                         }
                                         output.write(("+OK\r\n").getBytes());
                                         output.flush();
