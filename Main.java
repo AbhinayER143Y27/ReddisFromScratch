@@ -12,48 +12,48 @@ class Main
     public static void main(String[] args) {
         int port = 6379;
 
-        Thread deletionThread = new Thread(() ->
-        {
-            outer: while(true) {
-                ArrayList<String> keys = new ArrayList<>(dataSets.keySet()); //each cycle will get a new snapshot of the keys in the list.
-                Collections.shuffle(keys);
-                int counter = 0;
-                int aggressiveCounter = 0;
-                for(String x : keys)
-                {
-                    System.out.println("In the for loop");
-                    Long time = dataSets.get(x);
-                    if(time == null)
+            Thread deletionThread = new Thread(() ->
+            {
+                outer: while(true) {
+                    ArrayList<String> keys = new ArrayList<>(dataSets.keySet()); //each cycle will get a new snapshot of the keys in the list.
+                    Collections.shuffle(keys);
+                    int counter = 0;
+                    int aggressiveCounter = 0;
+                    for(String x : keys)
                     {
+                        System.out.println("In the for loop");
+                        Long time = dataSets.get(x);
+                        if(time == null)
+                        {
+                            counter++;
+                            continue;
+                        }
+                        if(time < System.currentTimeMillis())
+                        {
+                            System.out.println(dataSets.get(x) + " is removed because of time limitations......");
+                            dataSets.remove(x);
+                            MainSets.remove(x);
+                            aggressiveCounter++;
+                        }
+                        if(aggressiveCounter > 5)
+                        {
+                            continue outer;
+                        }
                         counter++;
-                        continue;
+                        if(counter >= Math.min(20, keys.size()))
+                        {
+                            break;
+                        }
                     }
-                    if(time < System.currentTimeMillis())
-                    {
-                        System.out.println(dataSets.get(x) + " is removed because of time limitations......");
-                        dataSets.remove(x);
-                        MainSets.remove(x);
-                        aggressiveCounter++;
-                    }
-                    if(aggressiveCounter > 5)
-                    {
-                        continue outer;
-                    }
-                    counter++;
-                    if(counter >= Math.min(20, keys.size()))
-                    {
+                    try {
+                        System.out.println("Sleeping now...");
+                        Thread.sleep(3000); //look at this the thread in here is the deletion thread which has to go to sleep
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
                         break;
                     }
                 }
-                try {
-                    System.out.println("Sleeping now...");
-                    Thread.sleep(3000); //look at this the thread in here is the deletion thread which has to go to sleep
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-            }
-        });
+            });
 
 
         try (ServerSocket serversocket = new ServerSocket(port)) {
@@ -263,17 +263,57 @@ class Main
                                         output.write(("+OK\r\n").getBytes());
                                         output.flush();
                                         break;
+
                                     case "LPOP": // lpop means only one is ask for te pop not all so
-                                        String value = listForLR.pollFirst();
-                                        output.write(("$" + value.length() + "\r\n").getBytes());
-                                        output.write((value + "\r\n").getBytes());
+                                        String keyLP = collectedArgs.get(1);
+                                        RedisObject existingLP = MainSets.get(keyLP);
+                                        if(existingLP == null)
+                                        {
+                                            output.write(("$-1\r\n").getBytes());
+                                            output.flush();
+                                        }
+                                        else
+                                        {
+                                            Deque<String> listLP = (Deque<String>) existingLP.payLoad;
+                                            String value = listLP.pollFirst();
+                                            if(value == null)
+                                            {
+                                                output.write(("$-1\r\n").getBytes());
+                                                output.flush();
+                                            }
+                                            else
+                                            {
+                                                output.write(("$" + value.length() + "\r\n").getBytes());
+                                                output.write((value + "\r\n").getBytes());
+                                                output.flush();
+                                            }
+                                        }
                                         break;
 
                                     case "RPOP":
-                                        String valueR = listForLR.pollLast();
-                                        output.write(("$" + valueR.length() + "\r\n").getBytes());
-                                        output.write((valueR + "\r\n").getBytes());
-                                        output.flush();
+                                        String keyRP = collectedArgs.get(1);
+                                        RedisObject existingRP = MainSets.get(keyRP);
+                                        if(existingRP == null)
+                                        {
+                                            output.write(("$-1\r\n").getBytes());
+                                            output.flush();
+                                        }
+                                        else
+                                        {
+                                            Deque<String> listRP = (Deque<String>) existingRP.payLoad;
+                                            String valueRP = listRP.pollLast();
+                                            if(valueRP == null)
+                                            {
+                                                output.write(("$-1\r\n").getBytes());
+                                                output.flush();
+                                            }
+                                            else
+                                            {
+                                                output.write(("$" + valueRP.length() + "\r\n").getBytes());
+                                                output.write((valueRP + "\r\n").getBytes());
+                                                output.flush();
+                                            }
+                                        }
                                         break;
 
                                     case "PING":
