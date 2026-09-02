@@ -97,16 +97,12 @@ class Main
 
                                 String command = collectedArgs.get(0).toUpperCase();
 
-                                switch (command)
-                                {
+                                switch (command) {
                                     case "ECHO":
-                                        if(collectedArgs.size() != 2)
-                                        {
+                                        if (collectedArgs.size() != 2) {
                                             output.write(("-There must be 2 inputs for the command ECHO.\r\n").getBytes());
                                             output.flush();
-                                        }
-                                        else
-                                        {
+                                        } else {
                                             output.write(("$" + collectedArgs.get(1).length() + "\r\n").getBytes());
                                             output.write((collectedArgs.get(1) + "\r\n").getBytes());
                                             System.out.println("The users request " + collectedArgs.get(1));
@@ -116,60 +112,48 @@ class Main
 
                                     case "SET":
                                         int pxIndex = -1;
-                                        for(int i = 0; i < collectedArgs.size(); i++)
-                                        {
-                                            if(collectedArgs.get(i).equalsIgnoreCase("PX"))
-                                            {
+                                        for (int i = 0; i < collectedArgs.size(); i++) {
+                                            if (collectedArgs.get(i).equalsIgnoreCase("PX")) {
                                                 pxIndex = i;
                                                 break;
                                             }
                                         }
                                         Long Time;
-                                        if(pxIndex != -1 && collectedArgs.size() > pxIndex + 1) {
+                                        if (pxIndex != -1 && collectedArgs.size() > pxIndex + 1) {
                                             // in this if && collectedArgs.size() > 3 this was added which was there now it is removed because what if set color px is written like this just a really great edge case in here for redis.
                                             Time = Long.parseLong(collectedArgs.get(pxIndex + 1));
                                             dataSets.put(collectedArgs.get(1), Time + System.currentTimeMillis());
                                             MainSets.put(collectedArgs.get(1), new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
                                             output.write(("+Ok\r\n").getBytes());
                                             output.flush();
-                                        }
-                                        else if (pxIndex == -1 && collectedArgs.size() >= 3){
+                                        } else if (pxIndex == -1 && collectedArgs.size() >= 3) {
                                             String key = collectedArgs.get(1);
                                             dataSets.remove(key);
                                             MainSets.put(key, new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
                                             output.write(("+OK\r\n".getBytes()));
                                             output.flush();
-                                        }
-                                        else
-                                        {
+                                        } else {
                                             output.write(("-There is problem in the manner of your writing.\r\n").getBytes());
                                             output.flush();
                                         }
                                         break;
 
                                     case "GET":
-                                        if(collectedArgs.size() != 2)
-                                        {
+                                        if (collectedArgs.size() != 2) {
                                             output.write(("-There has to be 2 inputs for the command GET.\r\n".getBytes()));
                                             output.flush();
-                                        }
-                                        else
-                                        {
+                                        } else {
                                             String key = collectedArgs.get(1);
-                                            if(MainSets.containsKey(key))
-                                            {
+                                            if (MainSets.containsKey(key)) {
 
                                                 Long time = dataSets.get(key);
-                                                if(MainSets.containsKey(key) && !dataSets.containsKey(key))
-                                                {
+                                                if (MainSets.containsKey(key) && !dataSets.containsKey(key)) {
                                                     RedisObject getValue = MainSets.get(key);
                                                     Object valueobject = getValue.payLoad;
                                                     String value = "";
-                                                    if(getValue.type == RedisObject.Type.STRING) {
+                                                    if (getValue.type == RedisObject.Type.STRING) {
                                                         value = String.valueOf(valueobject);
-                                                    }
-                                                    else if(getValue.type == RedisObject.Type.LIST)
-                                                    {
+                                                    } else if (getValue.type == RedisObject.Type.LIST) {
                                                         // we will do this later because i cannot see in the future right so we will work around that and then i will see what to do in here
                                                         // the probability will be higher at that time when the list will be implemented or something like that ig.
                                                         //value = List.of();
@@ -177,31 +161,24 @@ class Main
                                                     output.write(("$" + value.length() + "\r\n").getBytes());
                                                     output.write((value + "\r\n").getBytes());
                                                     output.flush();
-                                                }
-                                                else if(dataSets.containsKey(key) && time < System.currentTimeMillis())
-                                                {
+                                                } else if (dataSets.containsKey(key) && time < System.currentTimeMillis()) {
                                                     System.out.println("Key removed by the get call");
                                                     dataSets.remove(key);
                                                     MainSets.remove(key);
                                                     output.write(("$-1\r\n").getBytes());
                                                     output.flush();
-                                                }
-                                                else if(dataSets.containsKey(key) && time > System.currentTimeMillis())
-                                                {
+                                                } else if (dataSets.containsKey(key) && time > System.currentTimeMillis()) {
                                                     RedisObject getValue = MainSets.get(key);
                                                     Object valueObject = getValue.payLoad;
                                                     String value = "";
-                                                    if(getValue.type == RedisObject.Type.STRING)
-                                                    {
+                                                    if (getValue.type == RedisObject.Type.STRING) {
                                                         value = String.valueOf(valueObject);
                                                     }
                                                     output.write(("$" + value.length() + "\r\n").getBytes());
                                                     output.write((value + "\r\n").getBytes());
                                                     output.flush();
                                                 }
-                                            }
-                                            else
-                                            {
+                                            } else {
                                                 output.write(("$-1\r\n").getBytes());
                                                 output.flush();
                                             }
@@ -212,24 +189,19 @@ class Main
                                         String keyL = collectedArgs.get(1);
                                         RedisObject existingL = MainSets.get(keyL);
                                         Deque<String> listL;
-                                        if(existingL == null)
-                                        {
+                                        if (existingL == null) {
                                             listL = new LinkedList<>();
-                                            MainSets.put(keyL, new RedisObject(RedisObject.Type.LIST ,listL));
-                                        }
-                                        else if(existingL != null && existingL.type == RedisObject.Type.LIST) // so that means the current key is not a string but a list so
+                                            MainSets.put(keyL, new RedisObject(RedisObject.Type.LIST, listL));
+                                        } else if (existingL != null && existingL.type == RedisObject.Type.LIST) // so that means the current key is not a string but a list so
                                         {
                                             listL = (Deque<String>) existingL.payLoad;
-                                        }
-                                        else
-                                        {
+                                        } else {
                                             output.write(("$-1\r\n").getBytes());
                                             output.flush();
                                             break;
                                         }
 
-                                        for(int i = 2; i < collectedArgs.size(); i++)
-                                        {
+                                        for (int i = 2; i < collectedArgs.size(); i++) {
                                             listL.addFirst(collectedArgs.get(i));
                                         }
 
@@ -241,76 +213,138 @@ class Main
                                         String keyR = collectedArgs.get(1);
                                         RedisObject existingR = MainSets.get(keyR);
                                         Deque<String> listR;
-                                        if(existingR == null)
-                                        {
+                                        if (existingR == null) {
                                             listR = new LinkedList<>();
                                             MainSets.put(keyR, new RedisObject(RedisObject.Type.LIST, listR));
-                                        }
-                                        else if(existingR != null && existingR.type == RedisObject.Type.LIST)
-                                        {
+                                        } else if (existingR != null && existingR.type == RedisObject.Type.LIST) {
                                             listR = (Deque<String>) existingR.payLoad;
-                                        }
-                                        else
-                                        {
+                                        } else {
                                             output.write(("$-1\r\n").getBytes());
                                             output.flush();
                                             break;
                                         }
-                                        for(int i = 2; i < collectedArgs.size(); i++)
-                                        {
+                                        for (int i = 2; i < collectedArgs.size(); i++) {
                                             listR.addLast(collectedArgs.get(i));
                                         }
                                         output.write(("+OK\r\n").getBytes());
                                         output.flush();
                                         break;
 
-                                    case "LPOP": // lpop means only one is ask for te pop not all so
-                                        String keyLP = collectedArgs.get(1);
-                                        RedisObject existingLP = MainSets.get(keyLP);
-                                        if(existingLP == null)
-                                        {
-                                            output.write(("$-1\r\n").getBytes());
+                                    case "LPOP":
+                                        if (collectedArgs.size() != 2) {
+                                            String erpop = "Less arguments given.";
+                                            output.write(("$-" + erpop.length() + "\r\n").getBytes());
+                                            output.write((erpop + "\r\n").getBytes());
                                             output.flush();
+                                            break;
                                         }
-                                        else
-                                        {
-                                            Deque<String> listLP = (Deque<String>) existingLP.payLoad;
-                                            String value = listLP.pollFirst();
-                                            if(value == null)
+                                        else {
+                                            String keyLP = collectedArgs.get(1);
+                                            RedisObject existingLP = MainSets.get(keyLP);
+                                            if (existingLP == null) {
+                                                output.write(("$-1\r\n").getBytes());
+                                                output.flush();
+                                            } else if(existingLP.type == RedisObject.Type.LIST) {
+                                                Deque<String> listLP = (Deque<String>) existingLP.payLoad;
+                                                String value = listLP.pollFirst();
+                                                if (value == null) {
+                                                    output.write(("$-1\r\n").getBytes());
+                                                    output.flush();
+                                                } else {
+                                                    output.write(("$" + value.length() + "\r\n").getBytes());
+                                                    output.write((value + "\r\n").getBytes());
+                                                    output.flush();
+                                                }
+                                            }
+                                            else
                                             {
                                                 output.write(("$-1\r\n").getBytes());
                                                 output.flush();
                                             }
-                                            else
-                                            {
-                                                output.write(("$" + value.length() + "\r\n").getBytes());
-                                                output.write((value + "\r\n").getBytes());
-                                                output.flush();
-                                            }
+                                            break;
                                         }
-                                        break;
 
                                     case "RPOP":
-                                        String keyRP = collectedArgs.get(1);
-                                        RedisObject existingRP = MainSets.get(keyRP);
-                                        if(existingRP == null)
-                                        {
-                                            output.write(("$-1\r\n").getBytes());
+                                        if (collectedArgs.size() != 2) {
+                                            String erpop = "Less arguments given.";
+                                            output.write(("$" + erpop.length() + "\r\n").getBytes());
+                                            output.write((erpop + "\r\n").getBytes());
                                             output.flush();
+                                            break;
                                         }
-                                        else
-                                        {
-                                            Deque<String> listRP = (Deque<String>) existingRP.payLoad;
-                                            String valueRP = listRP.pollLast();
-                                            if(valueRP == null)
+                                        else {
+                                            String keyRP = collectedArgs.get(1);
+                                            RedisObject existingRP = MainSets.get(keyRP);
+                                            if (existingRP == null) {
+                                                output.write(("$-1\r\n").getBytes());
+                                                output.flush();
+                                            } else if(existingRP.type == RedisObject.Type.LIST){
+                                                Deque<String> listRP = (Deque<String>) existingRP.payLoad;
+                                                String valueRP = listRP.pollLast();
+                                                if (valueRP == null) {
+                                                    output.write(("$-1\r\n").getBytes());
+                                                    output.flush();
+                                                } else {
+                                                    output.write(("$" + valueRP.length() + "\r\n").getBytes());
+                                                    output.write((valueRP + "\r\n").getBytes());
+                                                    output.flush();
+                                                }
+                                            }
+                                            else
                                             {
                                                 output.write(("$-1\r\n").getBytes());
                                                 output.flush();
                                             }
+                                            break;
+                                        }
+
+                                    case "LRANGE":
+                                        if(collectedArgs.size() != 4)
+                                        {
+                                            String erRan = "Wrong amount of arguments given";
+                                            output.write(("$" + erRan + "\r\n").getBytes());
+                                            output.write((erRan + "\r\n").getBytes());
+                                        }
+                                        else
+                                        {
+                                            String keyLange = collectedArgs.get(1);
+                                            RedisObject existingLange = MainSets.get(keyLange);
+                                            if(existingLange == null)
+                                            {
+                                                String langeElse = "This exits but is empty";
+                                                output.write(("$" + langeElse.length() +"\r\n").getBytes());
+                                                output.write((langeElse + "\r\n").getBytes());
+                                                output.flush();
+                                            }
+                                            else if(existingLange.type == RedisObject.Type.LIST)
+                                            {
+                                                int startLange = Integer.parseInt(collectedArgs.get(2));
+                                                int endLange = Integer.parseInt(collectedArgs.get(3));
+                                                List<String> listLange = (List<String>)existingLange.payLoad;
+
+                                                if(startLange < 0)
+                                                {
+                                                    startLange = listLange.size() + startLange;
+                                                }
+                                                if(endLange < 0)
+                                                {
+                                                    endLange = listLange.size() + endLange;
+                                                }
+                                                if(startLange > endLange) System.out.println("we will return an empty list but return will ig end the program.");
+                                                else if(startLange <= endLange)
+                                                {
+                                                    for(int i = startLange; i < listLange.size(); i++)
+                                                    {
+                                                        if(i > endLange)break;
+                                                        output.write(("$" + listLange.get(i).length() + "\r\n").getBytes());
+                                                        output.write((listLange.get(i) + "\r\n").getBytes());
+                                                    }
+                                                    output.flush();
+                                                }
+                                            }
                                             else
                                             {
-                                                output.write(("$" + valueRP.length() + "\r\n").getBytes());
-                                                output.write((valueRP + "\r\n").getBytes());
+                                                output.write(("$-1\r\n").getBytes());
                                                 output.flush();
                                             }
                                         }
