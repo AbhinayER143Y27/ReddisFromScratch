@@ -12,48 +12,48 @@ class Main
     public static void main(String[] args) {
         int port = 6379;
 
-        Thread deletionThread = new Thread(() ->
-        {
-            outer: while(true) {
-                ArrayList<String> keys = new ArrayList<>(dataSets.keySet()); //each cycle will get a new snapshot of the keys in the list.
-                Collections.shuffle(keys);
-                int counter = 0;
-                int aggressiveCounter = 0;
-                for(String x : keys)
-                {
-                    System.out.println("In the for loop");
-                    Long time = dataSets.get(x);
-                    if(time == null)
+            Thread deletionThread = new Thread(() ->
+            {
+                outer: while(true) {
+                    ArrayList<String> keys = new ArrayList<>(dataSets.keySet()); //each cycle will get a new snapshot of the keys in the list.
+                    Collections.shuffle(keys);
+                    int counter = 0;
+                    int aggressiveCounter = 0;
+                    for(String x : keys)
                     {
+                        System.out.println("In the for loop");
+                        Long time = dataSets.get(x);
+                        if(time == null)
+                        {
+                            counter++;
+                            continue;
+                        }
+                        if(time < System.currentTimeMillis())
+                        {
+                            System.out.println(dataSets.get(x) + " is removed because of time limitations......");
+                            dataSets.remove(x);
+                            MainSets.remove(x);
+                            aggressiveCounter++;
+                        }
+                        if(aggressiveCounter > 5)
+                        {
+                            continue outer;
+                        }
                         counter++;
-                        continue;
+                        if(counter >= Math.min(20, keys.size()))
+                        {
+                            break;
+                        }
                     }
-                    if(time < System.currentTimeMillis())
-                    {
-                        System.out.println(dataSets.get(x) + " is removed because of time limitations......");
-                        dataSets.remove(x);
-                        MainSets.remove(x);
-                        aggressiveCounter++;
-                    }
-                    if(aggressiveCounter > 5)
-                    {
-                        continue outer;
-                    }
-                    counter++;
-                    if(counter >= Math.min(20, keys.size()))
-                    {
+                    try {
+                        System.out.println("Sleeping now...");
+                        Thread.sleep(3000); //look at this the thread in here is the deletion thread which has to go to sleep
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
                         break;
                     }
                 }
-                try {
-                    System.out.println("Sleeping now...");
-                    Thread.sleep(3000); //look at this the thread in here is the deletion thread which has to go to sleep
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-            }
-        });
+            });
 
 
         try (ServerSocket serversocket = new ServerSocket(port)) {
@@ -311,26 +311,46 @@ class Main
                                             RedisObject existingLange = MainSets.get(keyLange);
                                             if(existingLange == null)
                                             {
-                                                String langeElse = "This exits but is empty";
-                                                output.write(("$" + langeElse.length() +"\r\n").getBytes());
-                                                output.write((langeElse + "\r\n").getBytes());
+                                                output.write(("*0\r\n").getBytes());
                                                 output.flush();
                                             }
                                             else if(existingLange.type == RedisObject.Type.LIST)
                                             {
-                                                int startLange = Integer.parseInt(collectedArgs.get(2));
-                                                int endLange = Integer.parseInt(collectedArgs.get(3));
+                                                int startLange = 0;
+                                                int endLange = 0;
+                                                try{startLange = Integer.parseInt(collectedArgs.get(2));
+                                                endLange = Integer.parseInt(collectedArgs.get(3));}
+                                                catch (NumberFormatException e)
+                                                {
+                                                    String mathEror = "input wasn't a valid integer.";
+                                                    output.write(("$" + mathEror.length() + "\r\n").getBytes());
+                                                    output.write((mathEror + "\r\n").getBytes());
+                                                    output.flush();
+                                                    break;
+                                                }
                                                 List<String> listLange = (List<String>)existingLange.payLoad;
 
                                                 if(startLange < 0)
                                                 {
-                                                    startLange = listLange.size() + startLange;
+                                                        startLange = listLange.size() + startLange;
+                                                }
+                                                if(startLange < 0)
+                                                {
+                                                    startLange = 0;
                                                 }
                                                 if(endLange < 0)
                                                 {
-                                                    endLange = listLange.size() + endLange;
+                                                        endLange = listLange.size() + endLange;
                                                 }
-                                                if(startLange > endLange) System.out.println("we will return an empty list but return will ig end the program.");
+                                                if(endLange < 0)
+                                                {
+                                                    endLange = 0;
+                                                }
+                                                if(startLange > endLange)
+                                                {
+                                                    output.write(("*0\r\n").getBytes());
+                                                    output.flush();
+                                                }
                                                 else if(startLange <= endLange)
                                                 {
                                                     int endPoint = Math.min(endLange, listLange.size() - 1);
@@ -346,7 +366,7 @@ class Main
                                             }
                                             else
                                             {
-                                                output.write(("$-1\r\n").getBytes());
+                                                output.write(("-WRONGTYPE Operation against a key holding the wrong kind of value\r\n").getBytes());
                                                 output.flush();
                                             }
                                         }
