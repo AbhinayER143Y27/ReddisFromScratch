@@ -372,6 +372,27 @@ class Main
                                         }
                                         break;
 
+                                    case "LLEN":
+                                        String keyLen = collectedArgs.get(1);
+                                        RedisObject existingLen = MainSets.get(keyLen);
+                                        if(existingLen == null)
+                                        {
+                                            output.write((":0\r\n").getBytes()); // it is 0 not 1 for the non-existing key.
+                                            output.flush();
+                                        } else if(existingLen.type == RedisObject.Type.LIST)
+                                        {
+                                            List<String> listLen = (List<String>) existingLen.payLoad;
+                                              int listLenLength = listLen.size();
+                                              output.write((":" + listLenLength + "\r\n").getBytes());
+                                              output.flush();
+                                        }
+                                        else
+                                        {
+                                            output.write(("-WRONGTYPE Operation against a key holding the wrong kind of value\r\n").getBytes()); // it is 0 not 1 for the non-existing key.
+                                            output.flush();
+                                        }
+                                        break;
+
                                     case "PING":
                                         output.write(("+PONG\r\n").getBytes());
                                         output.flush();
