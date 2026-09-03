@@ -393,6 +393,22 @@ class Main
                                         }
                                         break;
 
+                                    case "DEL":
+                                        int counterDel = 0;
+                                        for(int i = 1; i < collectedArgs.size(); i++)
+                                        {
+                                            String keyDel = collectedArgs.get(i);
+                                            RedisObject removeDel = MainSets.remove(keyDel);
+                                            dataSets.remove(keyDel);
+                                            if(removeDel != null)
+                                            {
+                                                counterDel++;
+                                            }
+                                        }
+                                        output.write((":" + counterDel + "\r\n").getBytes());
+                                        output.flush();
+                                        break;
+
                                     case "PING":
                                         output.write(("+PONG\r\n").getBytes());
                                         output.flush();
