@@ -12,48 +12,48 @@ class Main
     public static void main(String[] args) {
         int port = 6379;
 
-            Thread deletionThread = new Thread(() ->
-            {
-                outer: while(true) {
-                    ArrayList<String> keys = new ArrayList<>(dataSets.keySet()); //each cycle will get a new snapshot of the keys in the list.
-                    Collections.shuffle(keys);
-                    int counter = 0;
-                    int aggressiveCounter = 0;
-                    for(String x : keys)
+        Thread deletionThread = new Thread(() ->
+        {
+            outer: while(true) {
+                ArrayList<String> keys = new ArrayList<>(dataSets.keySet()); //each cycle will get a new snapshot of the keys in the list.
+                Collections.shuffle(keys);
+                int counter = 0;
+                int aggressiveCounter = 0;
+                for(String x : keys)
+                {
+                    System.out.println("In the for loop");
+                    Long time = dataSets.get(x);
+                    if(time == null)
                     {
-                        System.out.println("In the for loop");
-                        Long time = dataSets.get(x);
-                        if(time == null)
-                        {
-                            counter++;
-                            continue;
-                        }
-                        if(time < System.currentTimeMillis())
-                        {
-                            System.out.println(dataSets.get(x) + " is removed because of time limitations......");
-                            dataSets.remove(x);
-                            MainSets.remove(x);
-                            aggressiveCounter++;
-                        }
-                        if(aggressiveCounter > 5)
-                        {
-                            continue outer;
-                        }
                         counter++;
-                        if(counter >= Math.min(20, keys.size()))
-                        {
-                            break;
-                        }
+                        continue;
                     }
-                    try {
-                        System.out.println("Sleeping now...");
-                        Thread.sleep(3000); //look at this the thread in here is the deletion thread which has to go to sleep
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
+                    if(time < System.currentTimeMillis())
+                    {
+                        System.out.println(dataSets.get(x) + " is removed because of time limitations......");
+                        dataSets.remove(x);
+                        MainSets.remove(x);
+                        aggressiveCounter++;
+                    }
+                    if(aggressiveCounter > 5)
+                    {
+                        continue outer;
+                    }
+                    counter++;
+                    if(counter >= Math.min(20, keys.size()))
+                    {
                         break;
                     }
                 }
-            });
+                try {
+                    System.out.println("Sleeping now...");
+                    Thread.sleep(3000); //look at this the thread in here is the deletion thread which has to go to sleep
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        });
 
 
         try (ServerSocket serversocket = new ServerSocket(port)) {
@@ -319,7 +319,7 @@ class Main
                                                 int startLange = 0;
                                                 int endLange = 0;
                                                 try{startLange = Integer.parseInt(collectedArgs.get(2));
-                                                endLange = Integer.parseInt(collectedArgs.get(3));}
+                                                    endLange = Integer.parseInt(collectedArgs.get(3));}
                                                 catch (NumberFormatException e)
                                                 {
                                                     String mathEror = "input wasn't a valid integer.";
@@ -332,7 +332,7 @@ class Main
 
                                                 if(startLange < 0)
                                                 {
-                                                        startLange = listLange.size() + startLange;
+                                                    startLange = listLange.size() + startLange;
                                                 }
                                                 if(startLange < 0)
                                                 {
@@ -340,7 +340,7 @@ class Main
                                                 }
                                                 if(endLange < 0)
                                                 {
-                                                        endLange = listLange.size() + endLange;
+                                                    endLange = listLange.size() + endLange;
                                                 }
                                                 if(endLange < 0)
                                                 {
@@ -382,9 +382,9 @@ class Main
                                         } else if(existingLen.type == RedisObject.Type.LIST)
                                         {
                                             List<String> listLen = (List<String>) existingLen.payLoad;
-                                              int listLenLength = listLen.size();
-                                              output.write((":" + listLenLength + "\r\n").getBytes());
-                                              output.flush();
+                                            int listLenLength = listLen.size();
+                                            output.write((":" + listLenLength + "\r\n").getBytes());
+                                            output.flush();
                                         }
                                         else
                                         {
@@ -408,6 +408,21 @@ class Main
                                         output.write((":" + counterDel + "\r\n").getBytes());
                                         output.flush();
                                         break;
+
+                                    case "EXISTS":
+                                        int countExist = 0;
+                                        for(int i = 1; i < collectedArgs.size(); i++)
+                                        {
+                                            String keyExist = collectedArgs.get(i);
+                                            if(MainSets.containsKey(keyExist))
+                                            {
+                                                countExist++;
+                                            }
+                                        }
+                                        output.write((":" + countExist + "\r\n").getBytes());
+                                        output.flush();
+                                        break;
+
 
                                     case "PING":
                                         output.write(("+PONG\r\n").getBytes());
