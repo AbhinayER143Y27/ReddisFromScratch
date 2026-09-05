@@ -113,7 +113,17 @@ class Main
                                     case "SET": // ex - seconds ,px - milli seconds
                                         int pxIndex = -1;
                                         int exIndex = -1;
+                                        int nxIndex = -1;
+                                        int xxIndex = -1;
                                         for (int i = 3; i < collectedArgs.size(); i++) {
+                                            if(collectedArgs.get(i).equalsIgnoreCase("NX"))
+                                            {
+                                                nxIndex = i;
+                                            }
+                                            if(collectedArgs.get(i).equalsIgnoreCase("XX"))
+                                            {
+                                                xxIndex = i;
+                                            }
                                             if (collectedArgs.get(i).equalsIgnoreCase("PX")) {
                                                 pxIndex = i;
                                             }
@@ -123,6 +133,7 @@ class Main
                                             }
                                         }
                                         Long Time;
+
                                         if (pxIndex != -1 && collectedArgs.size() > pxIndex + 1 && exIndex == -1) { // case for valid px
                                             // in this if && collectedArgs.size() > 3 this was added which was there now it is removed because what if set color px is written like this just a really great edge case in here for redis.
                                             Time = Long.parseLong(collectedArgs.get(pxIndex + 1));
@@ -148,7 +159,50 @@ class Main
                                         } else if (pxIndex != -1 && exIndex != -1) {
                                             output.write(("-ERR syntax error\r\n").getBytes());
                                             output.flush();
-                                        } else {
+                                        }
+
+                                        // <------------------ NX Condition ---------------------> 1 means that the key doesn't exist and the key is placed and 0 means the key is already there.
+                                        else if (nxIndex != -1)
+                                        {
+                                            if (pxIndex != -1 && collectedArgs.size() > pxIndex + 1 && exIndex == -1) { // case for valid px
+                                                Time = Long.parseLong(collectedArgs.get(pxIndex + 1));
+                                                Long previousD = dataSets.putIfAbsent(collectedArgs.get(1), Time + System.currentTimeMillis());
+                                                RedisObject previousM = MainSets.putIfAbsent(collectedArgs.get(1), new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
+                                                if(previousD == null && previousM == null) {
+                                                    output.write((":1\r\n").getBytes());
+                                                }
+                                                else
+                                                {
+                                                    output.write((":0\r\n").getBytes());
+                                                }
+                                                output.flush();
+                                            } else if (exIndex != -1 && collectedArgs.size() > exIndex + 1 && pxIndex == -1)// case for valid ex
+                                            {
+                                                Time = Long.parseLong(collectedArgs.get(exIndex + 1));
+                                                RedisObject previousM = MainSets.putIfAbsent(collectedArgs.get(1), new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
+                                                Long previousD = dataSets.putIfAbsent(collectedArgs.get(1), ((Time * 1000) + System.currentTimeMillis()));
+                                                if(previousD == null && previousM == null) {
+                                                    output.write((":1\r\n").getBytes());
+                                                }
+                                                else
+                                                {
+                                                    output.write((":0\r\n").getBytes());
+                                                }
+                                                output.flush();
+                                            } else if (pxIndex == -1 && collectedArgs.size() == 4 && exIndex == -1) { // no extra so only 4 this cannot be used with the next one == 3 as that would be a problem
+                                                String key = collectedArgs.get(1);
+                                                RedisObject previous = MainSets.putIfAbsent(key, new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
+                                                if(previous == null) {
+                                                    output.write((":1\r\n".getBytes()));
+                                                }
+                                                else
+                                                {
+                                                    output.write((":0\r\n").getBytes());
+                                                }
+                                                output.flush();
+                                            }
+                                        }
+                                        else {
                                             output.write(("-There is problem in the manner of your writing.\r\n").getBytes());
                                             output.flush();
                                         }
