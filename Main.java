@@ -162,6 +162,7 @@ class Main
                                         }
 
                                         // <------------------ NX Condition ---------------------> 1 means that the key doesn't exist and the key is placed and 0 means the key is already there.
+
                                         else if (nxIndex != -1)
                                         {
                                             if (pxIndex != -1 && collectedArgs.size() > pxIndex + 1 && exIndex == -1) { // case for valid px
@@ -202,6 +203,52 @@ class Main
                                                 output.flush();
                                             }
                                         }
+                                        
+                                        // <--------------------------- XX Condition  -------------------------------->
+
+                                        else if (xxIndex != -1) { // in here the 0 the key exists doesn't exist so 0 as a failure else 1.
+                                            if (pxIndex != -1 && collectedArgs.size() > pxIndex + 1 && exIndex == -1) { // case for valid px
+                                                Time = Long.parseLong(collectedArgs.get(pxIndex + 1));
+                                                String key = collectedArgs.get(1);
+                                                RedisObject previousM = MainSets.replace(key, new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
+                                                dataSets.put(collectedArgs.get(1), Time + System.currentTimeMillis());
+                                                if(previousM != null) {
+                                                    output.write((":1\r\n").getBytes());
+                                                }
+                                                else
+                                                {
+                                                    output.write((":0\r\n").getBytes());
+                                                }
+                                                output.flush();
+                                            } else if (exIndex != -1 && collectedArgs.size() > exIndex + 1 && pxIndex == -1)// case for valid ex
+                                            {
+                                                Time = Long.parseLong(collectedArgs.get(exIndex + 1));
+                                                String key = collectedArgs.get(1);
+                                                RedisObject previousM = MainSets.replace(key, new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
+                                                dataSets.put(collectedArgs.get(1), ((Time * 1000) + System.currentTimeMillis()));
+                                                if(previousM != null) {
+
+                                                    output.write((":1\r\n").getBytes());
+                                                }
+                                                else
+                                                {
+                                                    output.write((":0\r\n").getBytes());
+                                                }
+                                                output.flush();
+                                            } else if (pxIndex == -1 && collectedArgs.size() == 4 && exIndex == -1) { // no extra so only 4 this cannot be used with the next one == 3 as that would be a problem
+                                                String key = collectedArgs.get(1);
+                                                RedisObject previousM = MainSets.replace(key, new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
+                                                if(previousM != null) {
+                                                    output.write((":1\r\n".getBytes()));
+                                                }
+                                                else
+                                                {
+                                                    output.write((":0\r\n").getBytes());
+                                                }
+                                                output.flush();
+                                            }
+                                        }
+
                                         else {
                                             output.write(("-There is problem in the manner of your writing.\r\n").getBytes());
                                             output.flush();
