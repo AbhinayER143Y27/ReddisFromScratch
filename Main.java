@@ -134,36 +134,9 @@ class Main
                                         }
                                         Long Time;
 
-                                        if (pxIndex != -1 && collectedArgs.size() > pxIndex + 1 && exIndex == -1) { // case for valid px
-                                            // in this if && collectedArgs.size() > 3 this was added which was there now it is removed because what if set color px is written like this just a really great edge case in here for redis.
-                                            Time = Long.parseLong(collectedArgs.get(pxIndex + 1));
-                                            dataSets.put(collectedArgs.get(1), Time + System.currentTimeMillis());
-                                            MainSets.put(collectedArgs.get(1), new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
-                                            output.write(("+Ok\r\n").getBytes());
-                                            output.flush();
-                                        }
-                                        else if (exIndex != -1 && collectedArgs.size() > exIndex + 1 && pxIndex == -1)// case for valid ex
-                                        {
-                                            Time = Long.parseLong(collectedArgs.get(exIndex + 1));
-                                            dataSets.put(collectedArgs.get(1),((Time * 1000) + System.currentTimeMillis()));
-                                            MainSets.put(collectedArgs.get(1), new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
-                                            output.write(("+Ok\r\n").getBytes());
-                                            output.flush();
-                                        }
-                                        else if (pxIndex == -1 && collectedArgs.size() == 3 && exIndex == -1 ) { // valid case for the set name abhinay
-                                            String key = collectedArgs.get(1);
-                                            dataSets.remove(key);
-                                            MainSets.put(key, new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
-                                            output.write(("+OK\r\n".getBytes()));
-                                            output.flush();
-                                        } else if (pxIndex != -1 && exIndex != -1) {
-                                            output.write(("-ERR syntax error\r\n").getBytes());
-                                            output.flush();
-                                        }
-
                                         // <------------------ NX Condition ---------------------> 1 means that the key doesn't exist and the key is placed and 0 means the key is already there.
 
-                                        else if (nxIndex != -1)
+                                        if (nxIndex != -1)
                                         {
                                             if (pxIndex != -1 && collectedArgs.size() > pxIndex + 1 && exIndex == -1) { // case for valid px
                                                 Time = Long.parseLong(collectedArgs.get(pxIndex + 1));
@@ -247,6 +220,34 @@ class Main
                                                 }
                                                 output.flush();
                                             }
+                                        }
+
+                                        // <-----------------------   Normal One     -------------------------->
+                                        else if (pxIndex != -1 && collectedArgs.size() > pxIndex + 1 && exIndex == -1) { // case for valid px
+                                            // in this if && collectedArgs.size() > 3 this was added which was there now it is removed because what if set color px is written like this just a really great edge case in here for redis.
+                                            Time = Long.parseLong(collectedArgs.get(pxIndex + 1));
+                                            dataSets.put(collectedArgs.get(1), Time + System.currentTimeMillis());
+                                            MainSets.put(collectedArgs.get(1), new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
+                                            output.write(("+Ok\r\n").getBytes());
+                                            output.flush();
+                                        }
+                                        else if (exIndex != -1 && collectedArgs.size() > exIndex + 1 && pxIndex == -1)// case for valid ex
+                                        {
+                                            Time = Long.parseLong(collectedArgs.get(exIndex + 1));
+                                            dataSets.put(collectedArgs.get(1),((Time * 1000) + System.currentTimeMillis()));
+                                            MainSets.put(collectedArgs.get(1), new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
+                                            output.write(("+Ok\r\n").getBytes());
+                                            output.flush();
+                                        }
+                                        else if (pxIndex == -1 && collectedArgs.size() == 3 && exIndex == -1 ) { // valid case for the set name abhinay
+                                            String key = collectedArgs.get(1);
+                                            dataSets.remove(key);
+                                            MainSets.put(key, new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
+                                            output.write(("+OK\r\n".getBytes()));
+                                            output.flush();
+                                        } else if (pxIndex != -1 && exIndex != -1) {
+                                            output.write(("-ERR syntax error\r\n").getBytes());
+                                            output.flush();
                                         }
 
                                         else {
@@ -576,7 +577,7 @@ class Main
                                         }
                                         break;
 
-                                        case "RELEASE":
+                                    case "RELEASE":
                                         String key = collectedArgs.get(1);
                                         String Token = collectedArgs.get(2);
                                         if(MainSets.remove(key, new RedisObject(RedisObject.Type.STRING, Token)))
@@ -642,12 +643,13 @@ class RedisObject
 
     public boolean equals(Object other)
     {
-        if(this == other) return true; // two references pointing to the same object.
+        if(this == other) return true; // two references pointing to the same object, if it is same object not equal then simply return.
 
         if (other == null || getClass() != other.getClass()) { // deciding that two objects are not equal
             return false;
         }
 
+        //no class cast exception in here
         RedisObject obj = (RedisObject) other; //this doesn't give the other access to the same object it gives the another reference of the  object but with more specific type.
         return type == obj.type && Objects.equals(payLoad,obj.payLoad);
     }
