@@ -576,6 +576,22 @@ class Main
                                         }
                                         break;
 
+                                        case "RELEASE":
+                                        String key = collectedArgs.get(1);
+                                        String Token = collectedArgs.get(2);
+                                        if(MainSets.remove(key, new RedisObject(RedisObject.Type.STRING, Token)))
+                                        {
+                                            dataSets.remove(key); // if false then the key next exists, means the lock was acquired without a PX, nothing to clean up, not a sign of expiry or any prior problem.
+                                            output.write(("+OK\r\n").getBytes());
+                                            output.flush();
+                                        }
+                                        else
+                                        {
+                                            output.write(("-Error value not owned.\r\n").getBytes());
+                                            output.flush();
+                                        }
+                                        break;
+
                                     case "PING":
                                         output.write(("+PONG\r\n").getBytes());
                                         output.flush();
