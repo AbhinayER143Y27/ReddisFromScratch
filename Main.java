@@ -8,6 +8,7 @@ class Main
 {
     private static ConcurrentHashMap<String, RedisObject> MainSets = new ConcurrentHashMap<>(); // for the data without the expiration.
     private static ConcurrentHashMap<String, Long> dataSets = new ConcurrentHashMap<>(); // for the data with the expiration.
+    private static final Object lockGuard = new Object();
 
     public static void main(String[] args) {
         int port = 6379;
@@ -140,30 +141,38 @@ class Main
                                         {
                                             if (pxIndex != -1 && collectedArgs.size() > pxIndex + 1 && exIndex == -1) { // case for valid px
                                                 Time = Long.parseLong(collectedArgs.get(pxIndex + 1));
-                                                Long previousD = dataSets.putIfAbsent(collectedArgs.get(1), Time + System.currentTimeMillis());
-                                                RedisObject previousM = MainSets.putIfAbsent(collectedArgs.get(1), new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
-                                                if(previousD == null && previousM == null) {
-                                                    output.write((":1\r\n").getBytes());
-                                                }
-                                                else
+                                                String key = collectedArgs.get(1);
+                                                synchronized (lockGuard)
                                                 {
-                                                    output.write((":0\r\n").getBytes());
+                                                    if(!MainSets.containsKey(key))
+                                                    {
+                                                        MainSets.put(key, new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
+                                                        dataSets.put(key, Time + System.currentTimeMillis());
+                                                        output.write((":1\r\n").getBytes());
+                                                    }
+                                                    else
+                                                    {
+                                                        output.write((":0\r\n").getBytes());
+                                                    }
+                                                    output.flush();
                                                 }
-                                                output.flush();
                                             } else if (exIndex != -1 && collectedArgs.size() > exIndex + 1 && pxIndex == -1)// case for valid ex
                                             {
                                                 Time = Long.parseLong(collectedArgs.get(exIndex + 1));
-                                                RedisObject previousM = MainSets.putIfAbsent(collectedArgs.get(1), new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
-                                                Long previousD = dataSets.putIfAbsent(collectedArgs.get(1), ((Time * 1000) + System.currentTimeMillis()));
-                                                if(previousD == null && previousM == null) {
-                                                    output.write((":1\r\n").getBytes());
+                                                String key = collectedArgs.get(1);
+                                                synchronized (lockGuard) {
+                                                    if(!MainSets.containsKey(key)) {
+                                                        MainSets.put(key, new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
+                                                        dataSets.put(key, ((Time * 1000) + System.currentTimeMillis()));
+                                                            output.write((":1\r\n").getBytes());
+                                                        }
+                                                    else {
+                                                            output.write((":0\r\n").getBytes());
+                                                        }
+                                                    output.flush();
                                                 }
-                                                else
-                                                {
-                                                    output.write((":0\r\n").getBytes());
-                                                }
-                                                output.flush();
-                                            } else if (pxIndex == -1 && collectedArgs.size() == 4 && exIndex == -1) { // no extra so only 4 this cannot be used with the next one == 3 as that would be a problem
+                                            }
+                                            else if (pxIndex == -1 && collectedArgs.size() == 4 && exIndex == -1) { // no extra so only 4 this cannot be used with the next one == 3 as that would be a problem
                                                 String key = collectedArgs.get(1);
                                                 RedisObject previous = MainSets.putIfAbsent(key, new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
                                                 if(previous == null) {
@@ -183,42 +192,41 @@ class Main
                                             if (pxIndex != -1 && collectedArgs.size() > pxIndex + 1 && exIndex == -1) { // case for valid px
                                                 Time = Long.parseLong(collectedArgs.get(pxIndex + 1));
                                                 String key = collectedArgs.get(1);
-                                                RedisObject previousM = MainSets.replace(key, new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
-                                                dataSets.put(collectedArgs.get(1), Time + System.currentTimeMillis());
-                                                if(previousM != null) {
-                                                    output.write((":1\r\n").getBytes());
+                                                synchronized (lockGuard) {
+                                                    RedisObject previousM = MainSets.replace(key, new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
+                                                    if (previousM != null) {
+                                                        dataSets.put(collectedArgs.get(1), Time + System.currentTimeMillis());
+                                                        output.write((":1\r\n").getBytes());
+                                                    } else {
+                                                        output.write((":0\r\n").getBytes());
+                                                    }
+                                                    output.flush();
                                                 }
-                                                else
-                                                {
-                                                    output.write((":0\r\n").getBytes());
-                                                }
-                                                output.flush();
                                             } else if (exIndex != -1 && collectedArgs.size() > exIndex + 1 && pxIndex == -1)// case for valid ex
                                             {
                                                 Time = Long.parseLong(collectedArgs.get(exIndex + 1));
                                                 String key = collectedArgs.get(1);
-                                                RedisObject previousM = MainSets.replace(key, new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
-                                                dataSets.put(collectedArgs.get(1), ((Time * 1000) + System.currentTimeMillis()));
-                                                if(previousM != null) {
-
-                                                    output.write((":1\r\n").getBytes());
+                                                synchronized (lockGuard) {
+                                                    RedisObject previousM = MainSets.replace(key, new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
+                                                    if (previousM != null) {
+                                                        dataSets.put(collectedArgs.get(1), ((Time * 1000) + System.currentTimeMillis()));
+                                                        output.write((":1\r\n").getBytes());
+                                                    } else {
+                                                        output.write((":0\r\n").getBytes());
+                                                    }
+                                                    output.flush();
                                                 }
-                                                else
-                                                {
-                                                    output.write((":0\r\n").getBytes());
-                                                }
-                                                output.flush();
-                                            } else if (pxIndex == -1 && collectedArgs.size() == 4 && exIndex == -1) { // no extra so only 4 this cannot be used with the next one == 3 as that would be a problem
+                                            }else if (pxIndex == -1 && collectedArgs.size() == 4 && exIndex == -1) { // no extra so only 4 this cannot be used with the next one == 3 as that would be a problem
                                                 String key = collectedArgs.get(1);
-                                                RedisObject previousM = MainSets.replace(key, new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
-                                                if(previousM != null) {
-                                                    output.write((":1\r\n".getBytes()));
+                                                synchronized (lockGuard) {
+                                                    RedisObject previousM = MainSets.replace(key, new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
+                                                    if (previousM != null) {
+                                                        output.write((":1\r\n".getBytes()));
+                                                    } else {
+                                                        output.write((":0\r\n").getBytes());
+                                                    }
+                                                    output.flush();
                                                 }
-                                                else
-                                                {
-                                                    output.write((":0\r\n").getBytes());
-                                                }
-                                                output.flush();
                                             }
                                         }
 
@@ -226,23 +234,29 @@ class Main
                                         else if (pxIndex != -1 && collectedArgs.size() > pxIndex + 1 && exIndex == -1) { // case for valid px
                                             // in this if && collectedArgs.size() > 3 this was added which was there now it is removed because what if set color px is written like this just a really great edge case in here for redis.
                                             Time = Long.parseLong(collectedArgs.get(pxIndex + 1));
-                                            dataSets.put(collectedArgs.get(1), Time + System.currentTimeMillis());
-                                            MainSets.put(collectedArgs.get(1), new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
+                                            synchronized (lockGuard) {
+                                                dataSets.put(collectedArgs.get(1), Time + System.currentTimeMillis());
+                                                MainSets.put(collectedArgs.get(1), new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
+                                            }
                                             output.write(("+Ok\r\n").getBytes());
                                             output.flush();
                                         }
                                         else if (exIndex != -1 && collectedArgs.size() > exIndex + 1 && pxIndex == -1)// case for valid ex
                                         {
                                             Time = Long.parseLong(collectedArgs.get(exIndex + 1));
-                                            dataSets.put(collectedArgs.get(1),((Time * 1000) + System.currentTimeMillis()));
-                                            MainSets.put(collectedArgs.get(1), new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
+                                            synchronized (lockGuard) {
+                                                dataSets.put(collectedArgs.get(1), ((Time * 1000) + System.currentTimeMillis()));
+                                                MainSets.put(collectedArgs.get(1), new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
+                                            }
                                             output.write(("+Ok\r\n").getBytes());
                                             output.flush();
                                         }
                                         else if (pxIndex == -1 && collectedArgs.size() == 3 && exIndex == -1 ) { // valid case for the set name abhinay
                                             String key = collectedArgs.get(1);
-                                            dataSets.remove(key);
-                                            MainSets.put(key, new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
+                                            synchronized (lockGuard) {
+                                                dataSets.remove(key);
+                                                MainSets.put(key, new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
+                                            }
                                             output.write(("+OK\r\n".getBytes()));
                                             output.flush();
                                         } else if (pxIndex != -1 && exIndex != -1) {
@@ -580,16 +594,15 @@ class Main
                                     case "RELEASE":
                                         String key = collectedArgs.get(1);
                                         String Token = collectedArgs.get(2);
-                                        if(MainSets.remove(key, new RedisObject(RedisObject.Type.STRING, Token)))
-                                        {
-                                            dataSets.remove(key); // if false then the key next exists, means the lock was acquired without a PX, nothing to clean up, not a sign of expiry or any prior problem.
-                                            output.write(("+OK\r\n").getBytes());
-                                            output.flush();
-                                        }
-                                        else
-                                        {
-                                            output.write(("-Error value not owned.\r\n").getBytes());
-                                            output.flush();
+                                        synchronized (lockGuard) {
+                                            if (MainSets.remove(key, new RedisObject(RedisObject.Type.STRING, Token))) {
+                                                dataSets.remove(key); // if false then the key next exists, means the lock was acquired without a PX, nothing to clean up, not a sign of expiry or any prior problem.
+                                                output.write(("+OK\r\n").getBytes());
+                                                output.flush();
+                                            } else {
+                                                output.write(("-Error value not owned.\r\n").getBytes());
+                                                output.flush();
+                                            }
                                         }
                                         break;
 
@@ -613,6 +626,12 @@ class Main
                     {
                         System.out.println(e.getMessage());
                     }
+                    finally {
+                        try
+                        {
+                            socket.close();
+                        }catch (IOException ignored) {}
+                    }
                 });
                 thread.start();
             }
@@ -621,6 +640,7 @@ class Main
         }
     }
 }
+
 
 class RedisObject
 {
