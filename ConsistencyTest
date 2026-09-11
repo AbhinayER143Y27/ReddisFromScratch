@@ -1,0 +1,272 @@
+import java.io.*;
+import java.net.Socket;
+import java.net.SocketTimeoutException;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+
+public class ConsistencyTest {
+
+    static final String HOST = "localhost";
+    static final int PORT = 6379;
+    static final int READ_TIMEOUT_MS = 2000; // generous — a real reply should always beat this
+
+    public static void main(String[] args) throws Exception {
+        phase1_plainSetLastWriteWins();
+        phase2_setPxWithConcurrentGet();
+        phase3_delVsGet();
+        phase4_renewalDuringSweep();
+    }
+
+    // ---------- tiny persistent-connection wrapper (scaffolding, not a real client) ----------
+
+    static class ClientConn {
+        Socket socket;
+        BufferedReader in;
+        OutputStream out;
+
+        ClientConn() throws IOException { connect(); }
+
+        void connect() throws IOException {
+            socket = new Socket(HOST, PORT);
+            socket.setSoTimeout(READ_TIMEOUT_MS);
+            out = socket.getOutputStream();
+            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        }
+
+        // Single-line replies: SET, DEL, RELEASE, etc.
+        // Returns the reply, "(timeout)" if the server never answered,
+        // or "(dead:<msg>)" if the connection itself broke.
+        String send(String... parts) {
+            try {
+                out.write(encodeResp(parts));
+                out.flush();
+                String line = in.readLine();
+                return line == null ? "(closed)" : line;
+            } catch (SocketTimeoutException e) {
+                return "(timeout)";
+            } catch (IOException e) {
+                try { socket.close(); } catch (IOException ignored) {}
+                return "(dead:" + e.getMessage() + ")";
+            }
+        }
+
+        // Two-line bulk replies: GET. Returns the value, null for a legitimate nil ($-1),
+        // "(timeout)" for silence, or "(dead:<msg>)" for a broken connection.
+        String sendAndReadBulk(String... parts) {
+            try {
+                out.write(encodeResp(parts));
+                out.flush();
+                String first = in.readLine();
+                if (first == null) return "(closed)";
+                if (first.equals("$-1")) return null;
+                if (first.startsWith("$")) {
+                    String value = in.readLine();
+                    return value == null ? "(closed)" : value;
+                }
+                return first; // an error line, e.g. "-..."
+            } catch (SocketTimeoutException e) {
+                return "(timeout)";
+            } catch (IOException e) {
+                try { socket.close(); } catch (IOException ignored) {}
+                return "(dead:" + e.getMessage() + ")";
+            }
+        }
+
+        void ensureAlive() {
+            if (socket.isClosed()) {
+                try { connect(); } catch (IOException e) { throw new RuntimeException(e); }
+            }
+        }
+
+        void close() {
+            try { socket.close(); } catch (IOException ignored) {}
+        }
+    }
+
+    static ClientConn oneShot() {
+        try { return new ClientConn(); } catch (IOException e) { throw new RuntimeException(e); }
+    }
+
+    static byte[] encodeResp(String[] parts) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("*").append(parts.length).append("\r\n");
+        for (String p : parts) {
+            sb.append("$").append(p.length()).append("\r\n").append(p).append("\r\n");
+        }
+        return sb.toString().getBytes();
+    }
+
+    // ---------- Scenario 1: concurrent plain SET, checking for torn writes ----------
+
+    static void phase1_plainSetLastWriteWins() throws InterruptedException {
+        System.out.println("=== Phase 1: concurrent plain SET, checking for torn writes ===");
+        String key = "consistency:plain";
+        int writers = 50;
+        int trials = 30;
+        int tornWrites = 0;
+
+        ClientConn control = oneShot();
+        ExecutorService pool = Executors.newFixedThreadPool(writers);
+
+        for (int t = 0; t < trials; t++) {
+            control.send("DEL", key);
+            Set<String> sentValues = ConcurrentHashMap.newKeySet();
+            CountDownLatch latch = new CountDownLatch(writers);
+
+            for (int i = 0; i < writers; i++) {
+                final int id = i;
+                pool.submit(() -> {
+                    ClientConn c = oneShot();
+                    String value = "thread" + id + "_val";
+                    sentValues.add(value);
+                    c.send("SET", key, value);
+                    c.close();
+                    latch.countDown();
+                });
+            }
+            latch.await();
+
+            String returned = control.sendAndReadBulk("GET", key);
+            if (returned == null || returned.startsWith("(") || !sentValues.contains(returned)) {
+                tornWrites++;
+                System.out.println("  unexpected value in trial " + t + ": got [" + returned + "]");
+            }
+        }
+
+        pool.shutdown();
+        control.close();
+        System.out.println("Phase 1 result: " + tornWrites + " / " + trials + " trials showed a torn or unexpected write.\n");
+    }
+
+    // ---------- Scenario 2: concurrent SET...PX... + GET, watching for the GET NPE ----------
+
+    static void phase2_setPxWithConcurrentGet() throws InterruptedException {
+        System.out.println("=== Phase 2: concurrent SET...PX... + GET ===");
+        String key = "consistency:px";
+        int writers = 10;
+        int readers = 40;
+        long durationMs = 4000;
+        AtomicInteger crashedGets = new AtomicInteger(0);
+        AtomicInteger badMembership = new AtomicInteger(0);
+        AtomicInteger totalGets = new AtomicInteger(0);
+
+        ClientConn control = oneShot();
+        control.send("DEL", key);
+
+        Set<String> sentValues = ConcurrentHashMap.newKeySet();
+        ExecutorService pool = Executors.newFixedThreadPool(writers + readers);
+        long deadline = System.currentTimeMillis() + durationMs;
+        CountDownLatch latch = new CountDownLatch(writers + readers);
+
+        for (int i = 0; i < writers; i++) {
+            final int id = i;
+            pool.submit(() -> {
+                ClientConn c = oneShot();
+                int n = 0;
+                while (System.currentTimeMillis() < deadline) {
+                    String value = "writer" + id + "_" + (n++);
+                    sentValues.add(value);
+                    c.send("SET", key, value, "PX", "30000");
+                }
+                c.close();
+                latch.countDown();
+            });
+        }
+        for (int i = 0; i < readers; i++) {
+            pool.submit(() -> {
+                ClientConn c = oneShot();
+                while (System.currentTimeMillis() < deadline) {
+                    String v = c.sendAndReadBulk("GET", key);
+                    totalGets.incrementAndGet();
+                    if (v != null && v.startsWith("(dead")) {
+                        crashedGets.incrementAndGet();
+                        c.ensureAlive();
+                    } else if (v != null && !v.startsWith("(") && !sentValues.contains(v)) {
+                        badMembership.incrementAndGet();
+                    }
+                }
+                c.close();
+                latch.countDown();
+            });
+        }
+        latch.await();
+        pool.shutdown();
+        control.close();
+
+        System.out.println("Phase 2 result: " + totalGets.get() + " GETs issued, "
+                + crashedGets.get() + " hit a dead/crashed connection, "
+                + badMembership.get() + " returned a value nobody sent.\n");
+    }
+
+    // ---------- Scenario 3: concurrent DEL vs GET, watching for silence ----------
+
+    static void phase3_delVsGet() throws InterruptedException {
+        System.out.println("=== Phase 3: concurrent DEL vs GET ===");
+        String key = "consistency:delrace";
+        int rounds = 500;
+        AtomicInteger timeouts = new AtomicInteger(0);
+        AtomicInteger badMembership = new AtomicInteger(0);
+
+        ClientConn setter = oneShot();
+        ClientConn deleter = oneShot();
+        ClientConn getter = oneShot();
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+
+        for (int r = 0; r < rounds; r++) {
+            String value = "round" + r;
+            setter.send("SET", key, value);
+
+            CountDownLatch latch = new CountDownLatch(2);
+            pool.submit(() -> { deleter.send("DEL", key); latch.countDown(); });
+            pool.submit(() -> {
+                String v = getter.sendAndReadBulk("GET", key);
+                if ("(timeout)".equals(v)) {
+                    timeouts.incrementAndGet();
+                } else if (v != null && v.startsWith("(dead")) {
+                    getter.ensureAlive();
+                } else if (v != null && !v.equals(value)) {
+                    badMembership.incrementAndGet();
+                }
+                // v == null means DEL won cleanly — that's a legitimate outcome, not a flag
+                latch.countDown();
+            });
+            latch.await();
+        }
+
+        pool.shutdown();
+        setter.close(); deleter.close(); getter.close();
+
+        System.out.println("Phase 3 result: " + rounds + " rounds, " + timeouts.get()
+                + " GETs got no reply at all (the silent-drop bug), "
+                + badMembership.get() + " returned something other than the value or nil.\n");
+    }
+
+    // ---------- Scenario 4: renewal racing the sweep thread ----------
+
+    static void phase4_renewalDuringSweep() throws InterruptedException {
+        System.out.println("=== Phase 4: renewing a key right as it's about to expire ===");
+        String key = "consistency:renew";
+        int trials = 30;
+        AtomicInteger lostWrites = new AtomicInteger(0);
+
+        ClientConn c = oneShot();
+
+        for (int t = 0; t < trials; t++) {
+            c.send("DEL", key);
+            c.send("SET", key, "original", "PX", "150"); // short TTL, likely to fall inside a sweep cycle
+            Thread.sleep(120); // wait until just before expiry
+            String renewedValue = "renewed_" + t;
+            String setReply = c.send("SET", key, renewedValue, "PX", "30000");
+
+            String got = c.sendAndReadBulk("GET", key);
+            if (!renewedValue.equals(got)) {
+                lostWrites.incrementAndGet();
+                System.out.println("  lost write in trial " + t + ": SET replied [" + setReply + "], GET returned [" + got + "]");
+            }
+        }
+
+        c.close();
+        System.out.println("Phase 4 result: " + lostWrites.get() + " / " + trials + " renewals were lost.\n");
+    }
+}
