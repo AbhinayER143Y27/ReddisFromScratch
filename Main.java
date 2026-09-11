@@ -142,35 +142,35 @@ class Main
                                             if (pxIndex != -1 && collectedArgs.size() > pxIndex + 1 && exIndex == -1) { // case for valid px
                                                 Time = Long.parseLong(collectedArgs.get(pxIndex + 1));
                                                 String key = collectedArgs.get(1);
-                                                synchronized (lockGuard)
-                                                {
-                                                    if(!MainSets.containsKey(key))
-                                                    {
+                                                boolean acquired = false;
+                                                synchronized (lockGuard) {
+                                                    if (!MainSets.containsKey(key)) {
                                                         MainSets.put(key, new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
                                                         dataSets.put(key, Time + System.currentTimeMillis());
-                                                        output.write((":1\r\n").getBytes());
+                                                        acquired = true;
+                                                    } else {
+                                                        acquired = false;
                                                     }
-                                                    else
-                                                    {
-                                                        output.write((":0\r\n").getBytes());
-                                                    }
-                                                    output.flush();
                                                 }
+                                                    output.write((acquired ? ":1\r\n" : ":0\r\n").getBytes());
+                                                    output.flush();
                                             } else if (exIndex != -1 && collectedArgs.size() > exIndex + 1 && pxIndex == -1)// case for valid ex
                                             {
                                                 Time = Long.parseLong(collectedArgs.get(exIndex + 1));
                                                 String key = collectedArgs.get(1);
+                                                boolean acquired = false;
                                                 synchronized (lockGuard) {
                                                     if(!MainSets.containsKey(key)) {
                                                         MainSets.put(key, new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
                                                         dataSets.put(key, ((Time * 1000) + System.currentTimeMillis()));
-                                                            output.write((":1\r\n").getBytes());
-                                                        }
+                                                        acquired = true;
+                                                    }
                                                     else {
-                                                            output.write((":0\r\n").getBytes());
+                                                        acquired = false;
                                                         }
-                                                    output.flush();
                                                 }
+                                                output.write((acquired ? ":1\r\n" : ":0\r\n").getBytes());
+                                                output.flush();
                                             }
                                             else if (pxIndex == -1 && collectedArgs.size() == 4 && exIndex == -1) { // no extra so only 4 this cannot be used with the next one == 3 as that would be a problem
                                                 String key = collectedArgs.get(1);
@@ -192,41 +192,47 @@ class Main
                                             if (pxIndex != -1 && collectedArgs.size() > pxIndex + 1 && exIndex == -1) { // case for valid px
                                                 Time = Long.parseLong(collectedArgs.get(pxIndex + 1));
                                                 String key = collectedArgs.get(1);
+                                                boolean acquired = false;
                                                 synchronized (lockGuard) {
                                                     RedisObject previousM = MainSets.replace(key, new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
                                                     if (previousM != null) {
                                                         dataSets.put(collectedArgs.get(1), Time + System.currentTimeMillis());
-                                                        output.write((":1\r\n").getBytes());
+                                                        acquired = true;
                                                     } else {
-                                                        output.write((":0\r\n").getBytes());
+                                                        acquired = false;
                                                     }
-                                                    output.flush();
                                                 }
+                                                output.write((acquired ? ":1\r\n" : ":0\r\n").getBytes());
+                                                output.flush();
                                             } else if (exIndex != -1 && collectedArgs.size() > exIndex + 1 && pxIndex == -1)// case for valid ex
                                             {
                                                 Time = Long.parseLong(collectedArgs.get(exIndex + 1));
                                                 String key = collectedArgs.get(1);
+                                                boolean acquired = false;
                                                 synchronized (lockGuard) {
                                                     RedisObject previousM = MainSets.replace(key, new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
                                                     if (previousM != null) {
                                                         dataSets.put(collectedArgs.get(1), ((Time * 1000) + System.currentTimeMillis()));
-                                                        output.write((":1\r\n").getBytes());
+                                                        acquired = true;
                                                     } else {
-                                                        output.write((":0\r\n").getBytes());
+                                                    acquired = false;
                                                     }
-                                                    output.flush();
                                                 }
+                                                output.write((acquired ? ":1\r\n" : ":0\r\n").getBytes());
+                                                output.flush();
                                             }else if (pxIndex == -1 && collectedArgs.size() == 4 && exIndex == -1) { // no extra so only 4 this cannot be used with the next one == 3 as that would be a problem
                                                 String key = collectedArgs.get(1);
+                                                boolean acquired = false;
                                                 synchronized (lockGuard) {
                                                     RedisObject previousM = MainSets.replace(key, new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
                                                     if (previousM != null) {
-                                                        output.write((":1\r\n".getBytes()));
+                                                        acquired = true;
                                                     } else {
-                                                        output.write((":0\r\n").getBytes());
+                                                        acquired = false;
                                                     }
-                                                    output.flush();
                                                 }
+                                                output.write((acquired ? ":1\r\n" : ":0\r\n").getBytes());
+                                                output.flush();
                                             }
                                         }
 
@@ -276,44 +282,44 @@ class Main
                                             output.flush();
                                         } else {
                                             String key = collectedArgs.get(1);
-                                            if (MainSets.containsKey(key)) {
-
-                                                Long time = dataSets.get(key);
-                                                if (MainSets.containsKey(key) && !dataSets.containsKey(key)) {
-                                                    RedisObject getValue = MainSets.get(key);
-                                                    Object valueobject = getValue.payLoad;
-                                                    String value = "";
-                                                    if (getValue.type == RedisObject.Type.STRING) {
-                                                        value = String.valueOf(valueobject);
-                                                    } else if (getValue.type == RedisObject.Type.LIST) {
-                                                        // we will do this later because i cannot see in the future right so we will work around that and then i will see what to do in here
-                                                        // the probability will be higher at that time when the list will be implemented or something like that ig.
-                                                        //value = List.of();
+                                            boolean found = false;
+                                            String value = null;
+                                                synchronized (lockGuard)
+                                                {
+                                                    RedisObject obj = MainSets.get(key);
+                                                    if(obj != null)
+                                                    {
+                                                        Long time = dataSets.get(key);
+                                                        if(time != null && time < System.currentTimeMillis())
+                                                        {
+                                                            dataSets.remove(key);
+                                                            MainSets.remove(key);
+                                                        }
+                                                        else
+                                                        {
+                                                            if(obj.type == RedisObject.Type.LIST) {
+                                                                found = true;
+                                                                value = String.valueOf(obj.payLoad);
+                                                            }
+                                                            else
+                                                            {
+                                                                output.write(("-WRONGTYPE Operation against a key holding the wrong kind of value\\r\\n").getBytes());
+                                                                output.flush();
+                                                                break;
+                                                            }
+                                                        }
                                                     }
-                                                    output.write(("$" + value.length() + "\r\n").getBytes());
-                                                    output.write((value + "\r\n").getBytes());
-                                                    output.flush();
-                                                } else if (dataSets.containsKey(key) && time < System.currentTimeMillis()) {
-                                                    System.out.println("Key removed by the get call");
-                                                    dataSets.remove(key);
-                                                    MainSets.remove(key);
-                                                    output.write(("$-1\r\n").getBytes());
-                                                    output.flush();
-                                                } else if (dataSets.containsKey(key) && time > System.currentTimeMillis()) {
-                                                    RedisObject getValue = MainSets.get(key);
-                                                    Object valueObject = getValue.payLoad;
-                                                    String value = "";
-                                                    if (getValue.type == RedisObject.Type.STRING) {
-                                                        value = String.valueOf(valueObject);
-                                                    }
-                                                    output.write(("$" + value.length() + "\r\n").getBytes());
-                                                    output.write((value + "\r\n").getBytes());
-                                                    output.flush();
                                                 }
-                                            } else {
-                                                output.write(("$-1\r\n").getBytes());
-                                                output.flush();
-                                            }
+                                                if(found)
+                                                {
+                                                    output.write(("$" + value.length() + "\r\n").getBytes());
+                                                    output.write((value + "\r\n").getBytes());
+                                                }
+                                                else
+                                                {
+                                                    output.write(("$-1\r\n").getBytes());
+                                                }
+                                            output.flush();
                                         }
                                         break;
 
@@ -594,16 +600,17 @@ class Main
                                     case "RELEASE":
                                         String key = collectedArgs.get(1);
                                         String Token = collectedArgs.get(2);
+                                        boolean acquired = false;
                                         synchronized (lockGuard) {
                                             if (MainSets.remove(key, new RedisObject(RedisObject.Type.STRING, Token))) {
                                                 dataSets.remove(key); // if false then the key next exists, means the lock was acquired without a PX, nothing to clean up, not a sign of expiry or any prior problem.
-                                                output.write(("+OK\r\n").getBytes());
-                                                output.flush();
+                                                acquired = true;
                                             } else {
-                                                output.write(("-Error value not owned.\r\n").getBytes());
-                                                output.flush();
+                                                acquired = false;
                                             }
                                         }
+                                        output.write((acquired ? "+OK\r\n" : "-Error value not owned.\r\n").getBytes());
+                                        output.flush();
                                         break;
 
                                     case "PING":
