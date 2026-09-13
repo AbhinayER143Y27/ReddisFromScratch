@@ -22,19 +22,17 @@ class Main
                     int aggressiveCounter = 0;
                     for(String x : keys)
                     {
-                        System.out.println("In the for loop");
-                        Long time = dataSets.get(x);
-                        if(time == null)
-                        {
-                            counter++;
-                            continue;
-                        }
-                        if(time < System.currentTimeMillis())
-                        {
-                            System.out.println(dataSets.get(x) + " is removed because of time limitations......");
-                            dataSets.remove(x);
-                            MainSets.remove(x);
-                            aggressiveCounter++;
+                        synchronized (lockGuard) {
+                            Long time = dataSets.get(x);
+                            if (time == null) {
+                                counter++;
+                                continue;
+                            }
+                            if (time < System.currentTimeMillis()) {
+                                dataSets.remove(x);
+                                MainSets.remove(x);
+                                aggressiveCounter++;
+                            }
                         }
                         if(aggressiveCounter > 5)
                         {
@@ -47,8 +45,8 @@ class Main
                         }
                     }
                     try {
-                        System.out.println("Sleeping now...");
-                        Thread.sleep(3000); //look at this the thread in here is the deletion thread which has to go to sleep
+                        //System.out.println("Sleeping now...");
+                        Thread.sleep(200); //look at this the thread in here is the deletion thread which has to go to sleep
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                         break;
@@ -60,7 +58,7 @@ class Main
         try (ServerSocket serversocket = new ServerSocket(port)) {
 
             deletionThread.start();
-
+            RateLimiter rateLimiter = new RateLimiter();
             while (true) {
                 Socket socket = serversocket.accept();
 
@@ -99,6 +97,14 @@ class Main
                                 String command = collectedArgs.get(0).toUpperCase();
 
                                 switch (command) {
+                                    case "RATE":
+                                        rateLimiter.sendCommand(collectedArgs.get(1));
+                                        String v = rateLimiter.getCommand();
+                                        output.write(("$" + v.length() + "\r\n").getBytes());
+                                        output.write((v + "\r\n").getBytes());
+                                        output.flush();
+                                        break;
+
                                     case "ECHO":
                                         if (collectedArgs.size() != 2) {
                                             output.write(("-There must be 2 inputs for the command ECHO.\r\n").getBytes());
@@ -297,13 +303,14 @@ class Main
                                                         }
                                                         else
                                                         {
-                                                            if(obj.type == RedisObject.Type.LIST) {
+                                                            if(obj.type == RedisObject.Type.STRING) {
                                                                 found = true;
                                                                 value = String.valueOf(obj.payLoad);
                                                             }
                                                             else
                                                             {
-                                                                output.write(("-WRONGTYPE Operation against a key holding the wrong kind of value\\r\\n").getBytes());
+                                                                output.write(("-WRONGTYPE Operation against a key holding the wrong kind of value\r" +
+                                                                        "\n").getBytes());
                                                                 output.flush();
                                                                 break;
                                                             }
@@ -536,10 +543,12 @@ class Main
                                         for(int i = 1; i < collectedArgs.size(); i++)
                                         {
                                             String keyDel = collectedArgs.get(i);
-                                            RedisObject removeDel = MainSets.remove(keyDel);
-                                            dataSets.remove(keyDel);
-                                            if(removeDel != null)
-                                            {
+                                            RedisObject removeDel;
+                                            synchronized (lockGuard) {
+                                                removeDel = MainSets.remove(keyDel);
+                                                dataSets.remove(keyDel);
+                                            }
+                                            if (removeDel != null) {
                                                 counterDel++;
                                             }
                                         }
