@@ -11,6 +11,7 @@ public class RateLimiter {
     BufferedReader dataFromServer;
     int TokenBucketLimit = 10;
     int TokenPerSec = 2;
+    private static final Object lockGuardRateLimiter = new Object();
 
     public RateLimiter()
     {
@@ -50,7 +51,7 @@ public class RateLimiter {
         String ans = getCommand();
         long currentToken;
         long lastRefillMS;
-        if(ans == null) // if readline is used then even if it is true bez of readline it will be false bez that creates a new object.
+        if(ans == null) // if read line is used then even if it is true bez of readline it will be false bez that creates a new object.
         {
             currentToken = 10;
             lastRefillMS = System.currentTimeMillis();
@@ -70,11 +71,21 @@ public class RateLimiter {
         if(currentToken >= 1){
             currentToken -= 1;
             lastRefillMS = System.currentTimeMillis();
+            String value = String.valueOf(currentToken) + ":" + String.valueOf(lastRefillMS);
+            synchronized (lockGuardRateLimiter) { // idea is to avoid the stale data reading as well rather than just writing things.
+                sendCommand("SET", key, value);
+                getCommand();
+            }
             return true;
         }
         else
         {
             lastRefillMS = System.currentTimeMillis();
+            String value = String.valueOf(currentToken) + ":" + String.valueOf(lastRefillMS);
+            synchronized (lockGuardRateLimiter) {
+                sendCommand("SET", key, value);
+                getCommand();
+            }
             return false;
         }
     }
