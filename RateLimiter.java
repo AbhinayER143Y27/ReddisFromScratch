@@ -64,6 +64,19 @@ public class RateLimiter {
             int am  = (int)((something / 1000) * TokenPerSec);
             currentToken = Math.min(TokenBucketLimit ,(currentToken + am));
         }
+
+        // this is the block to check the calculation after the ans exists or not
+
+        if(currentToken >= 1){
+            currentToken -= 1;
+            lastRefillMS = System.currentTimeMillis();
+            return true;
+        }
+        else
+        {
+            lastRefillMS = System.currentTimeMillis();
+            return false;
+        }
     }
 
     String getCommand()
