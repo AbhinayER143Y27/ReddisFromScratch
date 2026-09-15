@@ -9,6 +9,8 @@ public class RateLimiter {
     InputStream inputStream;
     OutputStream outputStream;
     BufferedReader dataFromServer;
+    int TokenBucketLimit = 10;
+    int TokenPerSec = 2;
 
     public RateLimiter()
     {
@@ -42,25 +44,25 @@ public class RateLimiter {
         }
     }
 
-    void tryAcquire() // skip this i am creating this currently
+    public boolean tryAcquire(String key) // skip this i am creating this currently
     {
-        String key = null;
-        try {
-            key = dataFromServer.readLine();
-            sendCommand("Get", key);
-            String ans = getCommand();
-            if(ans == "$-1")
-            {
-                // we will put the bucket to max value;
-            }
-            else
-            {
-                ans.split(":");
-            }
-
-
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        sendCommand("Get", key);
+        String ans = getCommand();
+        long currentToken;
+        long lastRefillMS;
+        if(ans == null) // if readline is used then even if it is true bez of readline it will be false bez that creates a new object.
+        {
+            currentToken = 10;
+            lastRefillMS = System.currentTimeMillis();
+        }
+        else
+        {
+            String[] splitAns = ans.split(":"); // token : timeStamps
+            currentToken =  Long.parseLong(splitAns[0]);
+            lastRefillMS = Long.parseLong(splitAns[1]);
+            double something = System.currentTimeMillis() - lastRefillMS;
+            int am  = (int)((something / 1000) * TokenPerSec);
+            currentToken = Math.min(TokenBucketLimit ,(currentToken + am));
         }
     }
 
@@ -69,7 +71,18 @@ public class RateLimiter {
         try
         {
             String dataReturned = dataFromServer.readLine();
-            System.out.println(dataReturned);
+            if(dataReturned.startsWith("$-1"))
+            {
+                return null;
+            }
+            else
+            {
+                if(dataReturned.startsWith("$"))
+                {
+                    String value = dataFromServer.readLine();
+                    return value;
+                }
+            }
             return dataReturned;
         }
         catch (Exception e)
