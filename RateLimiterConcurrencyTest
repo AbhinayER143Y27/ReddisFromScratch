@@ -1,0 +1,51 @@
+import java.util.concurrent.atomic.AtomicInteger;
+
+public class RateLimiterConcurrencyTest {
+
+    static final int NUM_THREADS = 20;
+    static final int NUM_ROUNDS = 10;
+    static final int EXPECTED_ALLOWED = 10; // must match RateLimiter's TokenBucketLimit
+
+    public static void main(String[] args) throws InterruptedException {
+        // ONE RateLimiter instance, shared by every thread in every round.
+        // This is what makes "synchronized" on tryAcquire() actually mean something —
+        // it locks on "this", so every caller has to be sharing the same object.
+        RateLimiter rateLimiter = new RateLimiter();
+
+        int roundsWithWrongCount = 0;
+
+        for (int round = 1; round <= NUM_ROUNDS; round++) {
+            // fresh key each round — avoids needing to reset/drain leftover tokens between rounds
+            String key = "testkey_round" + round;
+
+            AtomicInteger successes = new AtomicInteger(0);
+            Thread[] threads = new Thread[NUM_THREADS];
+
+            for (int i = 0; i < NUM_THREADS; i++) {
+                threads[i] = new Thread(() -> {
+                    boolean allowed = rateLimiter.tryAcquire(key);
+                    if (allowed) {
+                        successes.incrementAndGet();
+                    }
+                });
+            }
+
+            // start them all as close together as possible
+            for (Thread t : threads) t.start();
+            for (Thread t : threads) t.join();
+
+            int actual = successes.get();
+            System.out.println("Round " + round + ": " + actual + " / " + NUM_THREADS + " allowed");
+
+            if (actual != EXPECTED_ALLOWED) {
+                roundsWithWrongCount++;
+            }
+        }
+
+        System.out.println();
+        System.out.println("=== SUMMARY ===");
+        System.out.println("Rounds run: " + NUM_ROUNDS);
+        System.out.println("Rounds with exactly " + EXPECTED_ALLOWED + " allowed (correct): " + (NUM_ROUNDS - roundsWithWrongCount));
+        System.out.println("Rounds with a wrong count (BUG - stale reads or interleaved socket access): " + roundsWithWrongCount);
+    }
+}
