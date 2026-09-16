@@ -97,14 +97,6 @@ class Main
                                 String command = collectedArgs.get(0).toUpperCase();
 
                                 switch (command) {
-                                    case "RATE":
-                                        rateLimiter.sendCommand(collectedArgs.get(1));
-                                        String v = rateLimiter.getCommand();
-                                        output.write(("$" + v.length() + "\r\n").getBytes());
-                                        output.write((v + "\r\n").getBytes());
-                                        output.flush();
-                                        break;
-
                                     case "ECHO":
                                         if (collectedArgs.size() != 2) {
                                             output.write(("-There must be 2 inputs for the command ECHO.\r\n").getBytes());
@@ -332,46 +324,65 @@ class Main
 
                                     case "LPUSH":
                                         String keyL = collectedArgs.get(1);
-                                        RedisObject existingL = MainSets.get(keyL);
-                                        Deque<String> listL;
-                                        if (existingL == null) {
-                                            listL = new LinkedList<>();
-                                            MainSets.put(keyL, new RedisObject(RedisObject.Type.LIST, listL));
-                                        } else if (existingL != null && existingL.type == RedisObject.Type.LIST) // so that means the current key is not a string but a list so
+                                        RedisObject existingL;
+                                        Deque<String> listL = null;
+                                        boolean wrongType = false;
+                                        synchronized (lockGuard) {
+                                            existingL = MainSets.get(keyL);
+                                            if (existingL == null) {
+                                                listL = new LinkedList<>();
+                                                MainSets.put(keyL, new RedisObject(RedisObject.Type.LIST, listL));
+                                            } else if (existingL.type == RedisObject.Type.LIST) // so that means the current key is not a string but a list so
+                                            {
+                                                listL = (Deque<String>) existingL.payLoad;
+                                            }
+                                            else {
+                                                wrongType = true;
+                                            }
+                                            if(!wrongType)
+                                            {
+                                                for (int i = 2; i < collectedArgs.size(); i++) {
+                                                    listL.addFirst(collectedArgs.get(i));
+                                                }
+                                            }
+                                        }
+                                        if(wrongType)
                                         {
-                                            listL = (Deque<String>) existingL.payLoad;
-                                        } else {
                                             output.write(("$-1\r\n").getBytes());
-                                            output.flush();
-                                            break;
                                         }
-
-                                        for (int i = 2; i < collectedArgs.size(); i++) {
-                                            listL.addFirst(collectedArgs.get(i));
+                                        else
+                                        {
+                                            output.write(("$OK\r\n").getBytes());
                                         }
-
-                                        output.write(("+OK\r\n".getBytes()));
                                         output.flush();
                                         break;
 
                                     case "RPUSH":
                                         String keyR = collectedArgs.get(1);
-                                        RedisObject existingR = MainSets.get(keyR);
-                                        Deque<String> listR;
-                                        if (existingR == null) {
-                                            listR = new LinkedList<>();
-                                            MainSets.put(keyR, new RedisObject(RedisObject.Type.LIST, listR));
-                                        } else if (existingR != null && existingR.type == RedisObject.Type.LIST) {
-                                            listR = (Deque<String>) existingR.payLoad;
-                                        } else {
+                                        RedisObject existingR;
+                                        Deque<String> listR = null;
+                                        boolean wrType = false;
+                                        synchronized (lockGuard) {
+                                            existingR = MainSets.get(keyR);
+                                            if (existingR == null) {
+                                                listR = new LinkedList<>();
+                                                MainSets.put(keyR, new RedisObject(RedisObject.Type.LIST, listR));
+                                            } else if (existingR != null && existingR.type == RedisObject.Type.LIST) {
+                                                listR = (Deque<String>) existingR.payLoad;
+                                            } else {
+                                                wrType = true;
+                                            }
+                                            if(!wrType){
+                                            for (int i = 2; i < collectedArgs.size(); i++) {
+                                                listR.addLast(collectedArgs.get(i));
+                                            }}
+                                        }
+                                        if(wrType == true)
+                                        {
                                             output.write(("$-1\r\n").getBytes());
-                                            output.flush();
-                                            break;
                                         }
-                                        for (int i = 2; i < collectedArgs.size(); i++) {
-                                            listR.addLast(collectedArgs.get(i));
-                                        }
-                                        output.write(("+OK\r\n").getBytes());
+                                        else{
+                                        output.write(("+OK\r\n").getBytes());}
                                         output.flush();
                                         break;
 
@@ -385,27 +396,35 @@ class Main
                                         }
                                         else {
                                             String keyLP = collectedArgs.get(1);
-                                            RedisObject existingLP = MainSets.get(keyLP);
-                                            if (existingLP == null) {
-                                                output.write(("$-1\r\n").getBytes());
-                                                output.flush();
-                                            } else if(existingLP.type == RedisObject.Type.LIST) {
-                                                Deque<String> listLP = (Deque<String>) existingLP.payLoad;
-                                                String value = listLP.pollFirst();
-                                                if (value == null) {
-                                                    output.write(("$-1\r\n").getBytes());
-                                                    output.flush();
+                                            String value = "";
+                                            boolean wrongThing = false;
+                                            boolean rightThing = false;
+                                            synchronized (lockGuard) {
+                                                RedisObject existingLP = MainSets.get(keyLP);
+                                                if (existingLP == null) {
+                                                    wrongThing = true;
+                                                } else if (existingLP.type == RedisObject.Type.LIST) {
+                                                    Deque<String> listLP = (Deque<String>) existingLP.payLoad;
+                                                    value = listLP.pollFirst();
+                                                    if (value == null) {
+                                                        wrongThing = true;
+                                                    } else {
+                                                        rightThing = true;
+                                                    }
                                                 } else {
-                                                    output.write(("$" + value.length() + "\r\n").getBytes());
-                                                    output.write((value + "\r\n").getBytes());
-                                                    output.flush();
+                                                    wrongThing = true;
                                                 }
                                             }
-                                            else
+                                            if(wrongThing)
                                             {
                                                 output.write(("$-1\r\n").getBytes());
-                                                output.flush();
                                             }
+                                            if(rightThing)
+                                            {
+                                                output.write(("$" + value.length() + "\r\n").getBytes());
+                                                output.write((value + "\r\n").getBytes());
+                                            }
+                                            output.flush();
                                             break;
                                         }
 
@@ -419,29 +438,36 @@ class Main
                                         }
                                         else {
                                             String keyRP = collectedArgs.get(1);
-                                            RedisObject existingRP = MainSets.get(keyRP);
-                                            if (existingRP == null) {
-                                                output.write(("$-1\r\n").getBytes());
-                                                output.flush();
-                                            } else if(existingRP.type == RedisObject.Type.LIST){
-                                                Deque<String> listRP = (Deque<String>) existingRP.payLoad;
-                                                String valueRP = listRP.pollLast();
-                                                if (valueRP == null) {
-                                                    output.write(("$-1\r\n").getBytes());
-                                                    output.flush();
+                                            String valueRP = "";
+                                            boolean wrongThing = false;
+                                            boolean rightThing = false;
+                                            synchronized (lockGuard) {
+                                                RedisObject existingRP = MainSets.get(keyRP);
+                                                if (existingRP == null) {
+                                                    wrongThing = true;
+                                                } else if (existingRP.type == RedisObject.Type.LIST) {
+                                                    Deque<String> listRP = (Deque<String>) existingRP.payLoad;
+                                                    valueRP = listRP.pollLast();
+                                                    if (valueRP == null) {
+                                                        wrongThing = true;
+                                                    } else {
+                                                        rightThing = true;
+                                                    }
                                                 } else {
-                                                    output.write(("$" + valueRP.length() + "\r\n").getBytes());
-                                                    output.write((valueRP + "\r\n").getBytes());
-                                                    output.flush();
+                                                    wrongThing = true;
                                                 }
                                             }
-                                            else
+                                            if(wrongThing)
                                             {
                                                 output.write(("$-1\r\n").getBytes());
-                                                output.flush();
                                             }
-                                            break;
+                                            if(rightThing) {
+                                                output.write(("$" + valueRP.length() + "\r\n").getBytes());
+                                                output.write((valueRP + "\r\n").getBytes());
+                                            }
+                                            output.flush();
                                         }
+                                        break;
 
                                     case "LRANGE":
                                         if(collectedArgs.size() != 4)
