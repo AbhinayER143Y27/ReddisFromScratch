@@ -45,7 +45,7 @@ public class RateLimiter {
         }
     }
 
-    public boolean tryAcquire(String key) // skip this i am creating this currently
+    public synchronized boolean tryAcquire(String key) // skip this i am creating this currently
     {
         sendCommand("Get", key);
         String ans = getCommand();
@@ -72,20 +72,16 @@ public class RateLimiter {
             currentToken -= 1;
             lastRefillMS = System.currentTimeMillis();
             String value = String.valueOf(currentToken) + ":" + String.valueOf(lastRefillMS);
-            synchronized (lockGuardRateLimiter) { // idea is to avoid the stale data reading as well rather than just writing things.
                 sendCommand("SET", key, value);
                 getCommand();
-            }
             return true;
         }
         else
         {
             lastRefillMS = System.currentTimeMillis();
             String value = String.valueOf(currentToken) + ":" + String.valueOf(lastRefillMS);
-            synchronized (lockGuardRateLimiter) {
                 sendCommand("SET", key, value);
                 getCommand();
-            }
             return false;
         }
     }
