@@ -554,25 +554,27 @@ class Main
                                         }
                                         break;
 
-                                    case "LLEN":
+                                    case "LLEN": // no syn needed because even after that the data will be stale
                                         String keyLen = collectedArgs.get(1);
-                                        RedisObject existingLen = MainSets.get(keyLen);
-                                        if(existingLen == null)
-                                        {
-                                            output.write((":0\r\n").getBytes()); // it is 0 not 1 for the non-existing key.
-                                            output.flush();
-                                        } else if(existingLen.type == RedisObject.Type.LIST)
-                                        {
-                                            List<String> listLen = (List<String>) existingLen.payLoad;
-                                              int listLenLength = listLen.size();
-                                              output.write((":" + listLenLength + "\r\n").getBytes());
-                                              output.flush();
+                                        int listLenLength = 0;
+                                        boolean zero = false;
+                                        boolean error = false;
+                                        boolean ans = false;
+                                        synchronized (lockGuard) {
+                                            RedisObject existingLen = MainSets.get(keyLen);
+                                            if (existingLen == null) {
+                                                 zero = true;// it is 0 not 1 for the non-existing key.
+                                            } else if (existingLen.type == RedisObject.Type.LIST) {
+                                                List<String> listLen = (List<String>) existingLen.payLoad;
+                                                listLenLength = listLen.size();
+                                                ans = true;
+                                            } else {
+                                                error = true; // it is 0 not 1 for the non-existing key.
+                                            }
                                         }
-                                        else
-                                        {
-                                            output.write(("-WRONGTYPE Operation against a key holding the wrong kind of value\r\n").getBytes()); // it is 0 not 1 for the non-existing key.
-                                            output.flush();
-                                        }
+                                        if(zero) output.write((":0\r\n").getBytes());
+                                        if(error) output.write(("-WRONGTYPE Operation against a key holding the wrong kind of value\r\n").getBytes());
+                                        if(ans)output.write((":" + listLenLength + "\r\n").getBytes());
                                         break;
 
                                     case "DEL":
@@ -614,33 +616,31 @@ class Main
                                             output.flush();
                                             break;
                                         }
-                                        String keyTTL = collectedArgs.get(1);
-                                        if(MainSets.containsKey(keyTTL) && !dataSets.containsKey(keyTTL))
-                                        {
-                                            output.write((":-1\r\n").getBytes());
-                                            output.flush();
-                                        }
-                                        else if(MainSets.containsKey(keyTTL) && dataSets.containsKey(keyTTL))
-                                        {
-                                            Long existingTime =  dataSets.get(keyTTL);
-                                            Long existingTimeCurrent = (existingTime - System.currentTimeMillis())/1000;
-                                            if(existingTimeCurrent > 0)
-                                            {
-                                                output.write((":" + existingTimeCurrent + "\r\n").getBytes());
-                                                output.flush();
+                                        boolean One = false;
+                                        boolean Two = false;
+                                        boolean Different = false;
+                                        Long existingTimeCurrent = null;
+                                        synchronized (lockGuard) {
+                                            String keyTTL = collectedArgs.get(1);
+                                            if (MainSets.containsKey(keyTTL) && !dataSets.containsKey(keyTTL)) {
+                                                One = true;
+                                            } else if (MainSets.containsKey(keyTTL) && dataSets.containsKey(keyTTL)) {
+                                                Long existingTime = dataSets.get(keyTTL);
+                                                existingTimeCurrent = (existingTime - System.currentTimeMillis()) / 1000;
+                                                if (existingTimeCurrent > 0) {
+                                                    Different = true;
+                                                } else {
+                                                    MainSets.remove(keyTTL);
+                                                    dataSets.remove(keyTTL);
+                                                    Two = true;
+                                                }
+                                            } else {
+                                                Two = true;
                                             }
-                                            else
-                                            {
-                                                MainSets.remove(keyTTL);
-                                                dataSets.remove(keyTTL);
-                                                output.write((":-2\r\n").getBytes());
-                                                output.flush();
-                                            }
                                         }
-                                        else {
-                                            output.write((":-2\r\n").getBytes());
-                                            output.flush();
-                                        }
+                                        if(One)output.write((":-1\r\n").getBytes());
+                                        if(Two)output.write((":-2\r\n").getBytes());
+                                        if(Different)output.write((":" + existingTimeCurrent + "\r\n").getBytes());
                                         break;
 
                                     case "RELEASE":
