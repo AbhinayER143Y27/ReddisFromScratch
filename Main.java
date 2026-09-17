@@ -479,66 +479,77 @@ class Main
                                         else
                                         {
                                             String keyLange = collectedArgs.get(1);
-                                            RedisObject existingLange = MainSets.get(keyLange);
-                                            if(existingLange == null)
-                                            {
-                                                output.write(("*0\r\n").getBytes());
-                                                output.flush();
-                                            }
-                                            else if(existingLange.type == RedisObject.Type.LIST)
-                                            {
-                                                int startLange = 0;
-                                                int endLange = 0;
-                                                try{startLange = Integer.parseInt(collectedArgs.get(2));
-                                                endLange = Integer.parseInt(collectedArgs.get(3));}
-                                                catch (NumberFormatException e)
-                                                {
-                                                    String mathEror = "input wasn't a valid integer.";
-                                                    output.write(("$" + mathEror.length() + "\r\n").getBytes());
-                                                    output.write((mathEror + "\r\n").getBytes());
-                                                    output.flush();
-                                                    break;
-                                                }
-                                                List<String> listLange = (List<String>)existingLange.payLoad;
-
-                                                if(startLange < 0)
-                                                {
-                                                        startLange = listLange.size() + startLange;
-                                                }
-                                                if(startLange < 0)
-                                                {
-                                                    startLange = 0;
-                                                }
-                                                if(endLange < 0)
-                                                {
-                                                        endLange = listLange.size() + endLange;
-                                                }
-                                                if(endLange < 0)
-                                                {
-                                                    endLange = 0;
-                                                }
-                                                if(startLange > endLange)
-                                                {
-                                                    output.write(("*0\r\n").getBytes());
-                                                    output.flush();
-                                                }
-                                                else if(startLange <= endLange)
-                                                {
-                                                    int endPoint = Math.min(endLange, listLange.size() - 1);
-                                                    int returnNum = endPoint - startLange + 1;
-                                                    output.write(("*" + returnNum + "\r\n").getBytes());
-                                                    for(int i = startLange; i <= endPoint; i++)
-                                                    {
-                                                        output.write(("$" + listLange.get(i).length() + "\r\n").getBytes());
-                                                        output.write((listLange.get(i) + "\r\n").getBytes());
+                                            boolean catchit = false;
+                                            boolean wrongthing = false;
+                                            boolean forloop = false;
+                                            boolean mainerror = false;
+                                            int startLange = 0;
+                                            int endLange = 0;
+                                            List<String> listLange = null;
+                                            List<String> snapShot = null;
+                                            synchronized (lockGuard) {
+                                                RedisObject existingLange = MainSets.get(keyLange);
+                                                if (existingLange == null) {
+                                                    wrongthing = true;
+                                                } else if (existingLange.type == RedisObject.Type.LIST) {
+                                                    try {
+                                                        startLange = Integer.parseInt(collectedArgs.get(2));
+                                                        endLange = Integer.parseInt(collectedArgs.get(3));
+                                                    } catch (NumberFormatException e) {
+                                                        catchit = true;
                                                     }
-                                                    output.flush();
+                                                    listLange = (List<String>) existingLange.payLoad;
+
+                                                    if (startLange < 0) {
+                                                        startLange = listLange.size() + startLange;
+                                                    }
+                                                    if (startLange < 0) {
+                                                        startLange = 0;
+                                                    }
+                                                    if (endLange < 0) {
+                                                        endLange = listLange.size() + endLange;
+                                                    }
+                                                    if (endLange < 0) {
+                                                        endLange = 0;
+                                                    }
+                                                    if (startLange > endLange) {
+                                                        output.write(("*0\r\n").getBytes());
+                                                        output.flush();
+                                                    } else if (startLange <= endLange) {
+                                                        int endPoint = Math.min(endLange, listLange.size() - 1);
+                                                        forloop = true;
+                                                        snapShot = new ArrayList<>(listLange.subList(startLange, endPoint+1));
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    mainerror = true;
                                                 }
                                             }
-                                            else
+                                            if(mainerror)
                                             {
                                                 output.write(("-WRONGTYPE Operation against a key holding the wrong kind of value\r\n").getBytes());
                                                 output.flush();
+                                            }
+
+                                            if(catchit)
+                                            {
+                                                String mathEror = "input wasn't a valid integer.";
+                                                output.write(("$" + mathEror.length() + "\r\n").getBytes());
+                                                output.write((mathEror + "\r\n").getBytes());
+                                            }
+                                            if(forloop)
+                                            {
+                                                output.write(("*" + snapShot.size() + "\r\n").getBytes());
+                                                for(int i = 0; i < snapShot.size(); i++)
+                                                {
+                                                    output.write(("$" + snapShot.get(i).length() + "\r\n").getBytes());
+                                                    output.write((snapShot.get(i) + "\r\n").getBytes());
+                                                }
+                                            }
+                                            if(wrongthing)
+                                            {
+                                                output.write(("*0\r\n").getBytes());
                                             }
                                         }
                                         break;
