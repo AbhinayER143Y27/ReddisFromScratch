@@ -352,7 +352,7 @@ class Main
                                         }
                                         else
                                         {
-                                            output.write(("$OK\r\n").getBytes());
+                                            output.write(("+OK\r\n").getBytes());
                                         }
                                         output.flush();
                                         break;
@@ -389,8 +389,7 @@ class Main
                                     case "LPOP":
                                         if (collectedArgs.size() != 2) {
                                             String erpop = "Less arguments given.";
-                                            output.write(("$-" + erpop.length() + "\r\n").getBytes());
-                                            output.write((erpop + "\r\n").getBytes());
+                                            output.write(("-" + erpop + "\r\n").getBytes());
                                             output.flush();
                                             break;
                                         }
@@ -473,8 +472,8 @@ class Main
                                         if(collectedArgs.size() != 4)
                                         {
                                             String erRan = "Wrong amount of arguments given";
-                                            output.write(("$" + erRan + "\r\n").getBytes());
-                                            output.write((erRan + "\r\n").getBytes());
+                                            output.write(("-" + erRan + "\r\n").getBytes());
+                                            output.flush();
                                         }
                                         else
                                         {
@@ -498,27 +497,28 @@ class Main
                                                     } catch (NumberFormatException e) {
                                                         catchit = true;
                                                     }
-                                                    listLange = (List<String>) existingLange.payLoad;
+                                                    if(!catchit) {
+                                                        listLange = (List<String>) existingLange.payLoad;
 
-                                                    if (startLange < 0) {
-                                                        startLange = listLange.size() + startLange;
-                                                    }
-                                                    if (startLange < 0) {
-                                                        startLange = 0;
-                                                    }
-                                                    if (endLange < 0) {
-                                                        endLange = listLange.size() + endLange;
-                                                    }
-                                                    if (endLange < 0) {
-                                                        endLange = 0;
-                                                    }
-                                                    if (startLange > endLange) {
-                                                        output.write(("*0\r\n").getBytes());
-                                                        output.flush();
-                                                    } else if (startLange <= endLange) {
-                                                        int endPoint = Math.min(endLange, listLange.size() - 1);
-                                                        forloop = true;
-                                                        snapShot = new ArrayList<>(listLange.subList(startLange, endPoint+1));
+                                                        if (startLange < 0) {
+                                                            startLange = listLange.size() + startLange;
+                                                        }
+                                                        if (startLange < 0) {
+                                                            startLange = 0;
+                                                        }
+                                                        if (endLange < 0) {
+                                                            endLange = listLange.size() + endLange;
+                                                        }
+                                                        if (endLange < 0) {
+                                                            endLange = 0;
+                                                        }
+                                                        if (startLange > endLange) {
+                                                            wrongthing = true;
+                                                        } else if (startLange <= endLange) {
+                                                            int endPoint = Math.min(endLange, listLange.size() - 1);
+                                                            forloop = true;
+                                                            snapShot = new ArrayList<>(listLange.subList(startLange, endPoint + 1));
+                                                        }
                                                     }
                                                 }
                                                 else
@@ -529,7 +529,6 @@ class Main
                                             if(mainerror)
                                             {
                                                 output.write(("-WRONGTYPE Operation against a key holding the wrong kind of value\r\n").getBytes());
-                                                output.flush();
                                             }
 
                                             if(catchit)
@@ -551,14 +550,16 @@ class Main
                                             {
                                                 output.write(("*0\r\n").getBytes());
                                             }
+                                            output.flush();
                                         }
                                         break;
 
-                                    case "LLEN": // no syn needed because even after that the data will be stale
+                                    case "LLEN": // previously no syn needed because even after that the data will be stale
+                                        // but now it is syn because for the atomicity.
                                         String keyLen = collectedArgs.get(1);
                                         int listLenLength = 0;
                                         boolean zero = false;
-                                        boolean error = false;
+                                        boolean errorL = false;
                                         boolean ans = false;
                                         synchronized (lockGuard) {
                                             RedisObject existingLen = MainSets.get(keyLen);
@@ -569,12 +570,13 @@ class Main
                                                 listLenLength = listLen.size();
                                                 ans = true;
                                             } else {
-                                                error = true; // it is 0 not 1 for the non-existing key.
+                                                errorL = true; // it is 0 not 1 for the non-existing key.
                                             }
                                         }
                                         if(zero) output.write((":0\r\n").getBytes());
-                                        if(error) output.write(("-WRONGTYPE Operation against a key holding the wrong kind of value\r\n").getBytes());
+                                        if(errorL) output.write(("-WRONGTYPE Operation against a key holding the wrong kind of value\r\n").getBytes());
                                         if(ans)output.write((":" + listLenLength + "\r\n").getBytes());
+                                        output.flush();
                                         break;
 
                                     case "DEL":
@@ -641,6 +643,7 @@ class Main
                                         if(One)output.write((":-1\r\n").getBytes());
                                         if(Two)output.write((":-2\r\n").getBytes());
                                         if(Different)output.write((":" + existingTimeCurrent + "\r\n").getBytes());
+                                        output.flush();
                                         break;
 
                                     case "RELEASE":
