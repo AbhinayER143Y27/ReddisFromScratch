@@ -1,3 +1,5 @@
+import RateLimiterr.RateLimiter;
+
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -9,10 +11,14 @@ class Main
     private static ConcurrentHashMap<String, RedisObject> MainSets = new ConcurrentHashMap<>(); // for the data without the expiration.
     private static ConcurrentHashMap<String, Long> dataSets = new ConcurrentHashMap<>(); // for the data with the expiration.
     private static final Object lockGuard = new Object();
+    static File logFile = new File("log.txt");
+    private static AOfWriter fileWriting;
 
     public static void main(String[] args) {
         int port = 6379;
-
+         try{fileWriting = new AOfWriter(logFile);}
+         catch (IOException e){
+             System.out.println("Failed to open file: " + e.getMessage());}
             Thread deletionThread = new Thread(() ->
             {
                 outer: while(true) {
@@ -242,6 +248,7 @@ class Main
                                                 dataSets.put(collectedArgs.get(1), Time + System.currentTimeMillis());
                                                 MainSets.put(collectedArgs.get(1), new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
                                             }
+                                            fileWriting.logCommand(collectedArgs.toArray(new String[0]));
                                             output.write(("+Ok\r\n").getBytes());
                                             output.flush();
                                         }
@@ -261,6 +268,7 @@ class Main
                                                 dataSets.remove(key);
                                                 MainSets.put(key, new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
                                             }
+                                            fileWriting.logCommand(collectedArgs.toArray(new String[0]));
                                             output.write(("+OK\r\n".getBytes()));
                                             output.flush();
                                         } else if (pxIndex != -1 && exIndex != -1) {
