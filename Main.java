@@ -353,8 +353,9 @@ class Main
                                         RedisObject existingL;
                                         Deque<String> listL = null;
                                         boolean wrongType = false;
+                                        boolean addOn = false;
                                         synchronized (lockGuard) {
-                                            existingL = MainSets.get(keyL);
+                                            existingL = MainSets.get(keyL);             //LPUSH mylist apple banana
                                             if (existingL == null) {
                                                 listL = new LinkedList<>();
                                                 MainSets.put(keyL, new RedisObject(RedisObject.Type.LIST, listL));
@@ -367,11 +368,13 @@ class Main
                                             }
                                             if(!wrongType)
                                             {
+                                                addOn = true;
                                                 for (int i = 2; i < collectedArgs.size(); i++) {
                                                     listL.addFirst(collectedArgs.get(i));
                                                 }
                                             }
                                         }
+                                        if(addOn) fileWriting.logCommand(collectedArgs.toArray(new String[0]));
                                         if(wrongType)
                                         {
                                             output.write(("$-1\r\n").getBytes());
@@ -388,6 +391,7 @@ class Main
                                         RedisObject existingR;
                                         Deque<String> listR = null;
                                         boolean wrType = false;
+                                        boolean addOnR = false;
                                         synchronized (lockGuard) {
                                             existingR = MainSets.get(keyR);
                                             if (existingR == null) {
@@ -399,11 +403,13 @@ class Main
                                                 wrType = true;
                                             }
                                             if(!wrType){
+                                                addOnR = true;
                                             for (int i = 2; i < collectedArgs.size(); i++) {
                                                 listR.addLast(collectedArgs.get(i));
                                             }}
                                         }
-                                        if(wrType == true)
+                                        if(addOnR) fileWriting.logCommand(collectedArgs.toArray(new String[0]));
+                                        if(wrType)
                                         {
                                             output.write(("$-1\r\n").getBytes());
                                         }
@@ -443,6 +449,10 @@ class Main
                                             if(wrongThing)
                                             {
                                                 output.write(("$-1\r\n").getBytes());
+                                            }
+                                            if(rightThing)
+                                            {
+                                                fileWriting.logCommand(collectedArgs.toArray(new String[0]));
                                             }
                                             if(rightThing)
                                             {
@@ -486,6 +496,7 @@ class Main
                                             {
                                                 output.write(("$-1\r\n").getBytes());
                                             }
+                                            if(rightThing)fileWriting.logCommand(collectedArgs.toArray(new String[0]));
                                             if(rightThing) {
                                                 output.write(("$" + valueRP.length() + "\r\n").getBytes());
                                                 output.write((valueRP + "\r\n").getBytes());
