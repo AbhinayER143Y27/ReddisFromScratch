@@ -607,6 +607,8 @@ class Main
 
                                     case "DEL":
                                         int counterDel = 0;
+                                        StringBuilder sb = new StringBuilder();
+                                        sb.append("Del" + " ");
                                         for(int i = 1; i < collectedArgs.size(); i++)
                                         {
                                             String keyDel = collectedArgs.get(i);
@@ -617,8 +619,10 @@ class Main
                                             }
                                             if (removeDel != null) {
                                                 counterDel++;
+                                                sb.append(keyDel + " ");
                                             }
                                         }
+                                        if(counterDel > 0) fileWriting.logCommand(sb.toString());
                                         output.write((":" + counterDel + "\r\n").getBytes());
                                         output.flush();
                                         break;
