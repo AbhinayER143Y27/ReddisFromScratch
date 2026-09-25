@@ -144,35 +144,40 @@ class Main
                                         if (nxIndex != -1)
                                         {
                                             if (pxIndex != -1 && collectedArgs.size() > pxIndex + 1 && exIndex == -1) { // case for valid px
-                                                Time = Long.parseLong(collectedArgs.get(pxIndex + 1));
+                                                Time = Long.parseLong(collectedArgs.get(pxIndex + 1)) + System.currentTimeMillis();
                                                 String key = collectedArgs.get(1);
+                                                collectedArgs.set(1,key);
                                                 boolean acquired = false;
                                                 synchronized (lockGuard) {
                                                     if (!MainSets.containsKey(key)) {
                                                         MainSets.put(key, new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
-                                                        dataSets.put(key, Time + System.currentTimeMillis());
+                                                        dataSets.put(key, Time);
                                                         acquired = true;
                                                     } else {
                                                         acquired = false;
                                                     }
                                                 }
+                                                fileWriting.logCommand(collectedArgs.toArray(new String[0]));
                                                     output.write((acquired ? ":1\r\n" : ":0\r\n").getBytes());
                                                     output.flush();
                                             } else if (exIndex != -1 && collectedArgs.size() > exIndex + 1 && pxIndex == -1)// case for valid ex
                                             {
                                                 Time = Long.parseLong(collectedArgs.get(exIndex + 1));
+                                                Time = (Time * 1000) + System.currentTimeMillis();
+                                                collectedArgs.set(exIndex + 1,String.valueOf(Time));
                                                 String key = collectedArgs.get(1);
                                                 boolean acquired = false;
                                                 synchronized (lockGuard) {
                                                     if(!MainSets.containsKey(key)) {
                                                         MainSets.put(key, new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
-                                                        dataSets.put(key, ((Time * 1000) + System.currentTimeMillis()));
+                                                        dataSets.put(key, Time);
                                                         acquired = true;
                                                     }
                                                     else {
                                                         acquired = false;
                                                         }
                                                 }
+                                                fileWriting.logCommand(collectedArgs.toArray(new String[0]));
                                                 output.write((acquired ? ":1\r\n" : ":0\r\n").getBytes());
                                                 output.flush();
                                             }
@@ -180,6 +185,7 @@ class Main
                                                 String key = collectedArgs.get(1);
                                                 RedisObject previous = MainSets.putIfAbsent(key, new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
                                                 if(previous == null) {
+                                                    fileWriting.logCommand(collectedArgs.toArray(new String[0]));
                                                     output.write((":1\r\n".getBytes()));
                                                 }
                                                 else
@@ -195,33 +201,39 @@ class Main
                                         else if (xxIndex != -1) { // in here the 0 the key exists doesn't exist so 0 as a failure else 1.
                                             if (pxIndex != -1 && collectedArgs.size() > pxIndex + 1 && exIndex == -1) { // case for valid px
                                                 Time = Long.parseLong(collectedArgs.get(pxIndex + 1));
+                                                Time = Time + System.currentTimeMillis();
+                                                collectedArgs.set(pxIndex + 1, String.valueOf(Time));
                                                 String key = collectedArgs.get(1);
                                                 boolean acquired = false;
                                                 synchronized (lockGuard) {
                                                     RedisObject previousM = MainSets.replace(key, new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
                                                     if (previousM != null) {
-                                                        dataSets.put(collectedArgs.get(1), Time + System.currentTimeMillis());
+                                                        dataSets.put(collectedArgs.get(1), Time);
                                                         acquired = true;
                                                     } else {
                                                         acquired = false;
                                                     }
                                                 }
+                                                fileWriting.logCommand(collectedArgs.toArray(new String[0]));
                                                 output.write((acquired ? ":1\r\n" : ":0\r\n").getBytes());
                                                 output.flush();
                                             } else if (exIndex != -1 && collectedArgs.size() > exIndex + 1 && pxIndex == -1)// case for valid ex
                                             {
                                                 Time = Long.parseLong(collectedArgs.get(exIndex + 1));
+                                                Time = (Time * 1000) + System.currentTimeMillis();
+                                                collectedArgs.set(exIndex + 1, String.valueOf(Time));
                                                 String key = collectedArgs.get(1);
                                                 boolean acquired = false;
                                                 synchronized (lockGuard) {
                                                     RedisObject previousM = MainSets.replace(key, new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
                                                     if (previousM != null) {
-                                                        dataSets.put(collectedArgs.get(1), ((Time * 1000) + System.currentTimeMillis()));
+                                                        dataSets.put(key, Time);
                                                         acquired = true;
                                                     } else {
                                                     acquired = false;
                                                     }
                                                 }
+                                                if(acquired)fileWriting.logCommand(collectedArgs.toArray(new String[0]));
                                                 output.write((acquired ? ":1\r\n" : ":0\r\n").getBytes());
                                                 output.flush();
                                             }else if (pxIndex == -1 && collectedArgs.size() == 4 && exIndex == -1) { // no extra so only 4 this cannot be used with the next one == 3 as that would be a problem
@@ -235,6 +247,7 @@ class Main
                                                         acquired = false;
                                                     }
                                                 }
+                                                if(acquired) fileWriting.logCommand(collectedArgs.toArray(new String[0]));
                                                 output.write((acquired ? ":1\r\n" : ":0\r\n").getBytes());
                                                 output.flush();
                                             }
@@ -244,8 +257,10 @@ class Main
                                         else if (pxIndex != -1 && collectedArgs.size() > pxIndex + 1 && exIndex == -1) { // case for valid px
                                             // in this if && collectedArgs.size() > 3 this was added which was there now it is removed because what if set color px is written like this just a really great edge case in here for redis.
                                             Time = Long.parseLong(collectedArgs.get(pxIndex + 1));
+                                            Time = Time + System.currentTimeMillis();
+                                            collectedArgs.set(pxIndex + 1, String.valueOf(Time));
                                             synchronized (lockGuard) {
-                                                dataSets.put(collectedArgs.get(1), Time + System.currentTimeMillis());
+                                                dataSets.put(collectedArgs.get(1),Time);
                                                 MainSets.put(collectedArgs.get(1), new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
                                             }
                                             fileWriting.logCommand(collectedArgs.toArray(new String[0]));
@@ -255,10 +270,13 @@ class Main
                                         else if (exIndex != -1 && collectedArgs.size() > exIndex + 1 && pxIndex == -1)// case for valid ex
                                         {
                                             Time = Long.parseLong(collectedArgs.get(exIndex + 1));
+                                            Time = (Time * 1000) + System.currentTimeMillis();
+                                            collectedArgs.set(exIndex + 1, String.valueOf(Time));
                                             synchronized (lockGuard) {
-                                                dataSets.put(collectedArgs.get(1), ((Time * 1000) + System.currentTimeMillis()));
+                                                dataSets.put(collectedArgs.get(1),Time );
                                                 MainSets.put(collectedArgs.get(1), new RedisObject(RedisObject.Type.STRING, collectedArgs.get(2)));
                                             }
+                                            fileWriting.logCommand(collectedArgs.toArray(new String[0]));
                                             output.write(("+Ok\r\n").getBytes());
                                             output.flush();
                                         }
