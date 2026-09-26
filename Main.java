@@ -37,6 +37,12 @@ class Main
                             if (time < System.currentTimeMillis()) {
                                 dataSets.remove(x);
                                 MainSets.remove(x);
+                                try{ //log the failure and let the sweep work instead of stopping it as the Run.runnable cannot throw exception in here so this is the best way possible.
+                                fileWriting.logCommand("DEL", x );
+                                }
+                                catch (IOException e){ // in other cases they all are in a bigger client try catch method while in here they don't have a bigger try catch so better be a smaller one
+                                    System.out.println("Failed to log expiry for the key." + x + ":" + e.getMessage());
+                                }
                                 aggressiveCounter++;
                             }
                         }
