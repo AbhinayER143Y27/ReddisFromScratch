@@ -1,7 +1,6 @@
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class AOfWriter {
     private final BufferedWriter writer;
@@ -18,5 +17,19 @@ public class AOfWriter {
             writer.newLine();
             writer.flush();
         }
+    }
+
+    public List<String[]> replayFromOf(File log) throws IOException
+    {
+        BufferedReader fileReader = new BufferedReader(new FileReader(log));
+        List<String[]> logFileData = new ArrayList<String[]>();
+        while(true) {
+            String txt = fileReader.readLine();
+            if(txt == null)break;
+            String[] s = txt.split(" ");
+            logFileData.add(s);
+        }
+        fileReader.close();
+        return logFileData;
     }
 }
