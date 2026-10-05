@@ -1,10 +1,12 @@
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class AOfWriter {
     private final BufferedWriter writer;
     private final Object FileWriterLock = new Object();
+
 
     public AOfWriter(File filePath) throws IOException
     {
@@ -31,5 +33,28 @@ public class AOfWriter {
         }
         fileReader.close();
         return logFileData;
+    }
+
+    public void readingTowards(List<String[]> theList)
+    {
+        for(String[] parts : theList) {
+            String commandInHere = parts[0].toUpperCase();
+                    switch (commandInHere) {
+                        case "SET":
+                            if(parts.length == 3)
+                            {
+                                Main.MainSets.put(parts[1],new RedisObject(RedisObject.Type.STRING, parts[2]));
+                            }
+                            if(parts.length == 5)
+                            {
+                                long time = Long.parseLong(parts[4]);
+                                if(time > System.currentTimeMillis())
+                                {
+                                    Main.MainSets.put(parts[1],new RedisObject(RedisObject.Type.STRING, parts[2]));
+                                    Main.dataSets.put(parts[1], time);
+                                }
+                            }
+                    }
+        }
     }
 }
