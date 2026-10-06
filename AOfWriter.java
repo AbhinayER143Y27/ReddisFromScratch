@@ -81,6 +81,25 @@ public class AOfWriter {
                             }
                             break;
 
+                        case "RPUSH":
+                            String keyR = parts[1];
+                            RedisObject existingR = Main.MainSets.get(keyR);
+                            Deque<String> listR = null;
+                            if(existingR == null)
+                            {
+                                listR = new LinkedList<>();
+                                Main.MainSets.put(keyR, new RedisObject(RedisObject.Type.LIST, listR));
+                            }
+                            else if(existingR.type == RedisObject.Type.LIST)
+                            {
+                                listR = (Deque<String>) existingR.payLoad;
+                            }
+                            for(int i = 2; i < parts.length; i++)
+                            {
+                                listR.addLast(parts[i]);
+                            }
+                            break;
+
                     }
         }
     }
