@@ -100,6 +100,15 @@ public class AOfWriter {
                             }
                             break;
 
+                        case "LPOP":
+                            RedisObject existingLP = Main.MainSets.get(parts[1]);
+                            Deque<String> ListLP = (Deque<String>) existingLP.payLoad;
+                            ListLP.pollFirst();
+
+                        case "RPOP":
+                            RedisObject existingRP = Main.MainSets.get(parts[1]);
+                            Deque<String> ListRP = (Deque<String>) existingRP.payLoad;
+                            ListRP.pollLast();
                     }
         }
     }
