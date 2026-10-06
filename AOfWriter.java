@@ -1,7 +1,5 @@
 import java.io.*;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 public class AOfWriter {
     private final BufferedWriter writer;
@@ -54,11 +52,35 @@ public class AOfWriter {
                                     Main.dataSets.put(parts[1], time);
                                 }
                             }
+                            break;
+
                         case "DEL":
                             for(int i = 1; i < parts.length; i++) {
                                 Main.MainSets.remove(parts[i]);
                                 Main.dataSets.remove(parts[i]);
                             }
+                            break;
+
+                        case "LPUSH":
+                            String keyL = parts[1];
+                            RedisObject existingL;
+                            Deque<String> ListL = null;
+                            existingL = Main.MainSets.get(keyL);
+                            if(existingL == null)
+                            {
+                                ListL = new LinkedList<>();
+                                Main.MainSets.put(keyL, new RedisObject(RedisObject.Type.LIST, ListL));
+                            }
+                            else if(existingL.type == RedisObject.Type.LIST)
+                            {
+                                ListL = (Deque<String>) existingL.payLoad;
+                            }
+                            for(int i = 2; i < parts.length; i++)
+                            {
+                                ListL.addFirst(parts[i]);
+                            }
+                            break;
+
                     }
         }
     }
