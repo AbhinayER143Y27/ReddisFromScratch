@@ -8,8 +8,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 class Main
 {
-    private static ConcurrentHashMap<String, RedisObject> MainSets = new ConcurrentHashMap<>(); // for the data without the expiration.
-    private static ConcurrentHashMap<String, Long> dataSets = new ConcurrentHashMap<>(); // for the data with the expiration.
+    public static ConcurrentHashMap<String, RedisObject> MainSets = new ConcurrentHashMap<>(); // for the data without the expiration.
+    public static ConcurrentHashMap<String, Long> dataSets = new ConcurrentHashMap<>(); // for the data with the expiration.
     private static final Object lockGuard = new Object();
     static File logFile = new File("log.txt");
     private static AOfWriter fileWriting;
@@ -69,8 +69,12 @@ class Main
 
         try (ServerSocket serversocket = new ServerSocket(port)) {
 
-            deletionThread.start();
             RateLimiter rateLimiter = new RateLimiter();
+            List<String[]> loggedCommands = fileWriting.replayFromOf(logFile);
+            fileWriting.readingTowards(loggedCommands);
+
+            deletionThread.start();
+
             while (true) {
                 Socket socket = serversocket.accept();
 
