@@ -54,6 +54,11 @@ public class AOfWriter {
                                     Main.dataSets.put(parts[1], time);
                                 }
                             }
+                        case "DEL":
+                            for(int i = 1; i < parts.length; i++) {
+                                Main.MainSets.remove(parts[i]);
+                                Main.dataSets.remove(parts[i]);
+                            }
                     }
         }
     }
